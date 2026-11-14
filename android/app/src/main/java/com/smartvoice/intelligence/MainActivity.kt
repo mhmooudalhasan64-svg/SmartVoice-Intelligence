@@ -61,6 +61,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -121,7 +122,7 @@ private fun HomeScreen() {
     var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }
     var modelProgress by remember { mutableStateOf<Int?>(null) }
     var transcriptText by remember { mutableStateOf<String?>(null) }
-    var isTranscribing by remember { mutableStateOf(false) }
+    var isTranscribing by remember { mutableStateOf(false) }\n    var isInstallingModel by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
 
@@ -366,7 +367,7 @@ private fun HomeScreen() {
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = modelProgress == null,
+                        enabled = !isInstallingModel,
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(modelProgress?.let { "تنزيل النموذج • $it%" } ?: "تنزيل نموذج العربية")

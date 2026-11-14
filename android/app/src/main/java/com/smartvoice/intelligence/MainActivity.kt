@@ -58,11 +58,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.smartvoice.intelligence.transcription.ArabicModelInstaller
+import com.smartvoice.intelligence.transcription.VoskTranscriptionEngine
 
 private val Ink = Color(0xFF111827)
 private val Panel = Color(0xFF1F2937)
@@ -112,7 +116,7 @@ private fun HomeScreen() {
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    var playingName by remember { mutableStateOf<String?>(null) }
+    var playingName by remember { mutableStateOf<String?>(null) }\n    var modelInstalled by remember { mutableStateOf(false) }\n    var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }\n    var modelProgress by remember { mutableStateOf<Int?>(null) }\n    var transcriptText by remember { mutableStateOf<String?>(null) }\n    var isTranscribing by remember { mutableStateOf(false) }\n    val scope = androidx.compose.runtime.rememberCoroutineScope()\n    val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
 
     fun refreshRecordings() {
         val dir = File(context.filesDir, "recordings")
@@ -318,6 +322,97 @@ private fun HomeScreen() {
                             refreshRecordings()
                         }
                     )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("التفريغ الصوتي العربي", color = Color.White,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(modelStatus, color = Muted, style = MaterialTheme.typography.bodySmall)
+                if (!modelInstalled) {
+                    Text("يتطلب النموذج تنزيلًا اختياريًا بحجم يقارب 318 MB. بعد تثبيته تتم معالجة الصوت محليًا.",
+                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                    Button(
+                        onClick = {
+                            modelStatus = "جارٍ تنزيل النموذج العربي..."
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    modelInstaller.install { progress ->
+                                        modelProgress = progress
+                                    }
+                                    modelInstalled = true
+                                    modelStatus = "اكتمل تثبيت النموذج العربي"
+                                } catch (error: Exception) {
+                                    modelStatus = "فشل التثبيت: ${error.message ?: "خطأ غير معروف"}"
+                                } finally {
+                                    modelProgress = null
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = modelProgress == null,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(modelProgress?.let { "تنزيل النموذج • $it%" } ?: "تنزيل نموذج العربية")
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            val latest = recordings.firstOrNull()
+                            if (latest == null) {
+                                modelStatus = "سجّل صوتًا أولاً"
+                            } else if (!isTranscribing) {
+                                isTranscribing = true
+                                transcriptText = null
+                                modelStatus = "جارٍ تفريغ أحدث تسجيل..."
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val engine = VoskTranscriptionEngine(
+                                            modelInstaller.installedDirectory,
+                                            File(context.cacheDir, "transcription")
+                                        )
+                                        val result = engine.transcribe(
+                                            recordingId = latest.file.nameWithoutExtension,
+                                            audioFile = latest.file,
+                                            languageTag = "ar",
+                                            onProgress = { percent ->
+                                                modelProgress = percent
+                                            }
+                                        )
+                                        transcriptText = result.fullText.ifBlank { "لم يتم التعرف على كلام واضح." }
+                                        modelStatus = "اكتمل التفريغ محليًا"
+                                    } catch (error: Exception) {
+                                        modelStatus = "تعذر التفريغ: ${error.message ?: "خطأ غير معروف"}"
+                                    } finally {
+                                        isTranscribing = false
+                                        modelProgress = null
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = recordings.isNotEmpty() && !isTranscribing,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (isTranscribing) "جارٍ التفريغ..." else "تفريغ أحدث تسجيل")
+                    }
+                    modelProgress?.let {
+                        Text("تقدم المعالجة: $it%", color = Accent,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                transcriptText?.let { text ->
+                    Text("النص المستخرج", color = Accent, fontWeight = FontWeight.SemiBold)
+                    Text(text, color = Color.White, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

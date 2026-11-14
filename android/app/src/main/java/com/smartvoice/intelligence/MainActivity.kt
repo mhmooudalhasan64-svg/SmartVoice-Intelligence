@@ -218,6 +218,8 @@ private fun HomeScreen() {
 
     DisposableEffect(Unit) {
         refreshRecordings()
+        modelInstalled = modelInstaller.isInstalled()
+        if (modelInstalled) modelStatus = "نموذج العربية جاهز على الجهاز"
         onDispose {
             try { recorder?.stop() } catch (_: Exception) { }
             try { recorder?.release() } catch (_: Exception) { }
@@ -353,6 +355,7 @@ private fun HomeScreen() {
                     Button(
                         onClick = {
                             modelStatus = "جارٍ تنزيل النموذج العربي..."
+                            isInstallingModel = true
                             scope.launch {
                                 try {
                                     modelInstaller.install { progress ->
@@ -384,7 +387,7 @@ private fun HomeScreen() {
                                 isTranscribing = true
                                 transcriptText = null
                                 modelStatus = "جارٍ تفريغ أحدث تسجيل..."
-                                scope.launch(Dispatchers.IO) {
+                                scope.launch {
                                     try {
                                         val engine = VoskTranscriptionEngine(
                                             modelInstaller.installedDirectory,

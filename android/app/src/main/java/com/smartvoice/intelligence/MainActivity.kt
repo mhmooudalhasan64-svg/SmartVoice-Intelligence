@@ -353,10 +353,10 @@ private fun HomeScreen() {
                     Button(
                         onClick = {
                             modelStatus = "جارٍ تنزيل النموذج العربي..."
-                            scope.launch(Dispatchers.IO) {
+                            scope.launch {
                                 try {
                                     modelInstaller.install { progress ->
-                                        modelProgress = progress
+                                        scope.launch { modelProgress = progress }
                                     }
                                     modelInstalled = true
                                     modelStatus = "اكتمل تثبيت النموذج العربي"
@@ -364,6 +364,7 @@ private fun HomeScreen() {
                                     modelStatus = "فشل التثبيت: ${error.message ?: "خطأ غير معروف"}"
                                 } finally {
                                     modelProgress = null
+                                    isInstallingModel = false
                                 }
                             }
                         },
@@ -389,14 +390,16 @@ private fun HomeScreen() {
                                             modelInstaller.installedDirectory,
                                             File(context.cacheDir, "transcription")
                                         )
-                                        val result = engine.transcribe(
-                                            recordingId = latest.file.nameWithoutExtension,
-                                            audioFile = latest.file,
-                                            languageTag = "ar",
-                                            onProgress = { percent ->
-                                                modelProgress = percent
-                                            }
-                                        )
+                                        val result = withContext(Dispatchers.IO) {
+                                            engine.transcribe(
+                                                recordingId = latest.file.nameWithoutExtension,
+                                                audioFile = latest.file,
+                                                languageTag = "ar",
+                                                onProgress = { percent ->
+                                                    scope.launch { modelProgress = percent }
+                                                }
+                                            )
+                                        }
                                         transcriptText = result.fullText.ifBlank { "لم يتم التعرف على كلام واضح." }
                                         modelStatus = "اكتمل التفريغ محليًا"
                                     } catch (error: Exception) {

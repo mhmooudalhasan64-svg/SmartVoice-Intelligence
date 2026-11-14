@@ -101,3 +101,12 @@ Save Draft/Record       User Review
 - لا يُحفظ عنصر منخفض الثقة كحقيقة مؤكدة.
 - يجب أن تكون عمليات الاستخراج قابلة لإعادة التشغيل دون تكرار العناصر.
 - يجب فصل مخرجات نموذج الذكاء الاصطناعي عن منطق التحقق والحفظ.
+
+
+## Local Arabic transcription integration (implementation in progress)
+
+- Android uses the Vosk native recognizer through `com.alphacephei:vosk-android:0.3.75` and JNA AAR dependencies.
+- The Arabic MGB-2 model is not bundled in the APK. The user explicitly starts its HTTPS download from the app; the installer reports download progress, limits archive/extracted sizes, rejects ZIP path traversal, validates required model files, and installs into app-private storage.
+- M4A/AAC recordings are decoded on-device with `MediaExtractor`/`MediaCodec`, downmixed and resampled to mono PCM 16 kHz, then recognized locally.
+- Word-level timestamps and confidence values are mapped into the transcription domain objects.
+- This integration has not yet passed a verified CI build or on-device test. Arabic MGB-2 benchmark figures do not establish Syrian-dialect accuracy; that requires a dedicated sample evaluation.

@@ -1,5 +1,6 @@
 package com.smartvoice.intelligence.transcription
 
+import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -142,26 +143,28 @@ class VoskTranscriptionEngine(
             }
             require(audioTrack >= 0 && inputFormat != null) { "No audio track found" }
             extractor.selectTrack(audioTrack)
-            val mime = inputFormat.getString(MediaFormat.KEY_MIME)!!
-            codec = MediaCodec.createDecoderByType(mime)
-            codec.configure(inputFormat, null, null, 0)
-            codec.start()
+            val format = requireNotNull(inputFormat)
+            val mime = format.getString(MediaFormat.KEY_MIME)!!
+            val decoder = MediaCodec.createDecoderByType(mime)
+            codec = decoder
+            decoder.configure(format, null, null, 0)
+            decoder.start()
 
             var inputDone = false
             var outputDone = false
-            var sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-            var channelCount = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-            var pcmEncoding = MediaFormat.ENCODING_PCM_16BIT
+            var sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            var channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            var pcmEncoding = AudioFormat.ENCODING_PCM_16BIT
             val info = MediaCodec.BufferInfo()
             BufferedOutputStream(FileOutputStream(rawFile)).use { raw ->
                 while (!outputDone) {
                     if (!inputDone) {
-                        val inputIndex = codec.dequeueInputBuffer(10_000)
+                        val inputIndex = decoder.dequeueInputBuffer(10_000)
                         if (inputIndex >= 0) {
-                            val inputBuffer = codec.getInputBuffer(inputIndex)!!
+                            val inputBuffer = decoder.getInputBuffer(inputIndex)!!
                             val sampleSize = extractor.readSampleData(inputBuffer, 0)
                             if (sampleSize < 0) {
-                                codec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                                 inputDone = true
                             } else {
                                 codec.queueInputBuffer(inputIndex, 0, sampleSize, extractor.sampleTime, 0)
@@ -169,9 +172,9 @@ class VoskTranscriptionEngine(
                             }
                         }
                     }
-                    when (val outputIndex = codec.dequeueOutputBuffer(info, 10_000)) {
+                    when (val outputIndex = decoder.dequeueOutputBuffer(info, 10_000)) {
                         MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                            val format = codec.outputFormat
+                            val format = decoder.outputFormat
                             sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                             channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                             if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
@@ -180,7 +183,7 @@ class VoskTranscriptionEngine(
                         }
                         MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                         else -> if (outputIndex >= 0) {
-                            val outputBuffer = codec.getOutputBuffer(outputIndex)!!
+                            val outputBuffer = decoder.getOutputBuffer(outputIndex)!!
                             if (info.size > 0) {
                                 outputBuffer.position(info.offset)
                                 outputBuffer.limit(info.offset + info.size)
@@ -189,7 +192,7 @@ class VoskTranscriptionEngine(
                                 raw.write(chunk)
                             }
                             outputDone = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                            codec.releaseOutputBuffer(outputIndex, false)
+                            decoder.releaseOutputBuffer(outputIndex, false)
                         }
                     }
                 }

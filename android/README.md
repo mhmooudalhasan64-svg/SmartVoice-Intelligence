@@ -32,3 +32,10 @@
 3. حفظ النصوص والكلمات والطوابع الزمنية محلياً.
 4. اختبار الدقة على تسجيلات عربية سورية قبل اعتماد التصنيف التلقائي.
 5. بناء محرك فهم السياق والتوجيه إلى جداول التطبيق الفعلية.
+
+
+## Arabic transcription (early integration)
+
+The app now includes a Vosk-based local transcription path. The Arabic MGB-2 model is downloaded only after the user presses the install button (approximately 318 MB); it is not embedded in the APK. Audio decoding and recognition are designed to run locally. The latest saved recording can be sent to the local recognizer after model installation.
+
+**Not yet verified:** successful CI build, physical-device operation, and Syrian-dialect recognition quality. Do not treat this as a production-ready transcription feature until those checks pass.

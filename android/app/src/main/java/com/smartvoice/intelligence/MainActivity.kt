@@ -116,7 +116,14 @@ private fun HomeScreen() {
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    var playingName by remember { mutableStateOf<String?>(null) }\n    var modelInstalled by remember { mutableStateOf(false) }\n    var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }\n    var modelProgress by remember { mutableStateOf<Int?>(null) }\n    var transcriptText by remember { mutableStateOf<String?>(null) }\n    var isTranscribing by remember { mutableStateOf(false) }\n    val scope = androidx.compose.runtime.rememberCoroutineScope()\n    val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
+    var playingName by remember { mutableStateOf<String?>(null) }
+    var modelInstalled by remember { mutableStateOf(false) }
+    var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }
+    var modelProgress by remember { mutableStateOf<Int?>(null) }
+    var transcriptText by remember { mutableStateOf<String?>(null) }
+    var isTranscribing by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
 
     fun refreshRecordings() {
         val dir = File(context.filesDir, "recordings")

@@ -41,3 +41,15 @@
 
 ## اللغة
 واجهة وفهم عربيان من البداية، مع دعم الفصحى واللهجات العربية، وإمكانية التوسع إلى لغات أخرى.
+
+
+## Current transcription implementation status
+
+- [x] Add Vosk Android dependency and an on-device recognizer adapter.
+- [x] Add local M4A/AAC decoding to mono PCM 16 kHz.
+- [x] Add explicit Arabic model download/install flow with ZIP-slip and size protections.
+- [x] Connect model installation and latest-recording transcription to the Android screen.
+- [ ] Verify Gradle build and unit tests in GitHub Actions.
+- [ ] Test on a physical Android device, including long recordings, decoder edge cases, storage pressure, and model loading.
+- [ ] Evaluate transcription quality on consented Syrian Arabic recordings before describing dialect support as reliable.
+- [ ] Persist transcripts and expose segment playback/source navigation.

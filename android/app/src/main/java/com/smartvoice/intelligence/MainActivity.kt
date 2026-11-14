@@ -99,7 +99,7 @@ private fun SmartVoiceTheme(content: @Composable () -> Unit) {
     )
 }
 
-private data class RecordingItem(val file: File)
+private data class RecordingItem(val file: File, val durationSeconds: Long?)
 
 @Composable
 private fun HomeScreen() {
@@ -118,7 +118,11 @@ private fun HomeScreen() {
         val dir = File(context.filesDir, "recordings")
         recordings = (dir.listFiles()?.filter { it.isFile && it.extension == "m4a" }
             ?.sortedByDescending { it.lastModified() } ?: emptyList())
-            .map { RecordingItem(it) }
+            .map { file ->
+                val durationFile = File(file.parentFile, "${file.nameWithoutExtension}.duration")
+                val duration = durationFile.takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
+                RecordingItem(file, duration)
+            }
     }
 
     fun stopPlayback() {
@@ -132,9 +136,15 @@ private fun HomeScreen() {
         val current = recorder
         try {
             current?.stop()
+            activeFile?.let { file ->
+                File(file.parentFile, "${file.nameWithoutExtension}.duration").writeText(elapsedSeconds.toString())
+            }
             status = "تم حفظ التسجيل"
         } catch (_: RuntimeException) {
-            activeFile?.delete()
+            activeFile?.let { file ->
+                file.delete()
+                File(file.parentFile, "${file.nameWithoutExtension}.duration").delete()
+            }
             status = "التسجيل قصير جداً ولم يتم حفظه"
         } finally {
             try { current?.reset() } catch (_: Exception) { }
@@ -304,6 +314,7 @@ private fun HomeScreen() {
                         onDelete = {
                             if (playingName == item.file.name) stopPlayback()
                             item.file.delete()
+                            File(item.file.parentFile, "${item.file.nameWithoutExtension}.duration").delete()
                             refreshRecordings()
                         }
                     )
@@ -347,7 +358,8 @@ private fun RecordingRow(
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(date, color = Color.White, fontWeight = FontWeight.Medium)
-                Text("%.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
+                val durationLabel = item.durationSeconds?.let { "${it / 60}:%02d".format(it % 60) } ?: "المدة غير متاحة"
+                Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
             IconButton(onClick = onPlay) {

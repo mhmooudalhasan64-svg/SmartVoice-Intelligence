@@ -167,7 +167,7 @@ class VoskTranscriptionEngine(
                                 decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                                 inputDone = true
                             } else {
-                                codec.queueInputBuffer(inputIndex, 0, sampleSize, extractor.sampleTime, 0)
+                                decoder.queueInputBuffer(inputIndex, 0, sampleSize, extractor.sampleTime, 0)
                                 extractor.advance()
                             }
                         }
@@ -197,7 +197,7 @@ class VoskTranscriptionEngine(
                     }
                 }
             }
-            require(pcmEncoding == MediaFormat.ENCODING_PCM_16BIT) {
+            require(pcmEncoding == AudioFormat.ENCODING_PCM_16BIT) {
                 "Unsupported decoder PCM format"
             }
             require(sampleRate > 0 && channelCount > 0) { "Invalid decoded audio format" }

@@ -69,16 +69,16 @@ import java.util.Locale
 import com.smartvoice.intelligence.transcription.ArabicModelInstaller
 import com.smartvoice.intelligence.transcription.VoskTranscriptionEngine
 
-private val Ink = Color(0xFF111827)
-private val Panel = Color(0xFF1F2937)
-private val Accent = Color(0xFF7C9EFF)
-private val Muted = Color(0xFF9CA3AF)
+private val Ink = Color(0xFF090A0D)
+private val Panel = Color(0xFF191B20)
+private val Accent = Color(0xFFD6B15C)
+private val Muted = Color(0xFFA6A09A)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SmartVoiceTheme {
+            VeloraTheme {
                 Surface(Modifier.fillMaxSize(), color = Ink) {
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalLayoutDirection provides LayoutDirection.Rtl
@@ -236,9 +236,9 @@ private fun HomeScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("SmartVoice", style = MaterialTheme.typography.headlineMedium,
+            Text("VELORA", style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, color = Color.White)
-            Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
+            Text("VOICE CORE • التوثيق والتنظيم الذكي",
                 style = MaterialTheme.typography.bodyLarge, color = Muted)
         }
 
@@ -294,7 +294,7 @@ private fun HomeScreen() {
             }
         }
 
-        Text("التسجيلات المحفوظة (${recordings.size})",
+        Text("تسجيلات VELORA المحفوظة (${recordings.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = Color.White)
 
@@ -436,7 +436,7 @@ private fun HomeScreen() {
             }
         }
 
-        Text("مساحات التنظيم", style = MaterialTheme.typography.titleMedium,
+        Text("مساحات التنظيم الذكي", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = Color.White)
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             FeatureRow(Icons.Default.TaskAlt, "المهام", "استخراج الأعمال المطلوب تنفيذها")
@@ -444,7 +444,7 @@ private fun HomeScreen() {
             FeatureRow(Icons.Default.Lightbulb, "الأفكار والملاحظات", "حفظ الأفكار وربطها بمصدرها")
         }
         Spacer(Modifier.height(2.dp))
-        Text("نسخة تأسيسية • 0.2.0", modifier = Modifier.fillMaxWidth(),
+        Text("VELORA • VOICE CORE 0.0.1", modifier = Modifier.fillMaxWidth(),
             color = Muted, style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center)
     }

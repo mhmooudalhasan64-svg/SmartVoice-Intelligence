@@ -1,4 +1,4 @@
-package com.smartvoice.intelligence
+package com.aurevon.velora
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -66,8 +66,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.smartvoice.intelligence.transcription.ArabicModelInstaller
-import com.smartvoice.intelligence.transcription.VoskTranscriptionEngine
+import com.aurevon.velora.transcription.ArabicModelInstaller
+import com.aurevon.velora.transcription.VoskTranscriptionEngine
 
 private val Ink = Color(0xFF111827)
 private val Panel = Color(0xFF1F2937)
@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SmartVoiceTheme {
+            VeloraTheme {
                 Surface(Modifier.fillMaxSize(), color = Ink) {
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalLayoutDirection provides LayoutDirection.Rtl
@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SmartVoiceTheme(content: @Composable () -> Unit) {
+private fun VeloraTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = Accent,
@@ -236,7 +236,7 @@ private fun HomeScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("SmartVoice", style = MaterialTheme.typography.headlineMedium,
+            Text("VELORA", style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, color = Color.White)
             Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
                 style = MaterialTheme.typography.bodyLarge, color = Muted)

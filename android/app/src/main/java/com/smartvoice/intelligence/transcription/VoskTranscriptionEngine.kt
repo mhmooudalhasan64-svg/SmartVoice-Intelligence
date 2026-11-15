@@ -1,6 +1,5 @@
 package com.smartvoice.intelligence.transcription
 
-import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -24,6 +23,9 @@ import kotlin.math.roundToInt
  * The supplied modelDirectory must already contain an extracted Vosk model.
  * Audio is decoded locally from the app's M4A/AAC recording into mono PCM 16 kHz.
  */
+// Android AudioFormat.ENCODING_PCM_16BIT is the stable public value 2.
+private const val PCM_ENCODING_16BIT = 2
+
 class VoskTranscriptionEngine(
     private val modelDirectory: File,
     private val workDirectory: File
@@ -154,7 +156,7 @@ class VoskTranscriptionEngine(
             var outputDone = false
             var sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             var channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-            var pcmEncoding = AudioFormat.ENCODING_PCM_16BIT
+            var pcmEncoding = PCM_ENCODING_16BIT
             val info = MediaCodec.BufferInfo()
             BufferedOutputStream(FileOutputStream(rawFile)).use { raw ->
                 while (!outputDone) {
@@ -197,7 +199,7 @@ class VoskTranscriptionEngine(
                     }
                 }
             }
-            require(pcmEncoding == AudioFormat.ENCODING_PCM_16BIT) {
+            require(pcmEncoding == PCM_ENCODING_16BIT) {
                 "Unsupported decoder PCM format"
             }
             require(sampleRate > 0 && channelCount > 0) { "Invalid decoded audio format" }

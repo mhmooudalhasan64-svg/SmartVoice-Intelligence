@@ -240,6 +240,8 @@ private fun HomeScreen() {
                 fontWeight = FontWeight.Bold, color = Color.White)
             Text("VOICE CORE • التوثيق والتنظيم الذكي",
                 style = MaterialTheme.typography.bodyLarge, color = Muted)
+            Text("ORIN • المساعد الذكي",
+                style = MaterialTheme.typography.labelLarge, color = Accent)
         }
 
         Card(
@@ -446,6 +448,9 @@ private fun HomeScreen() {
         Spacer(Modifier.height(2.dp))
         Text("VELORA • VOICE CORE 0.0.1", modifier = Modifier.fillMaxWidth(),
             color = Muted, style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center)
+        Text("POWERED BY AUREVON", modifier = Modifier.fillMaxWidth(),
+            color = Accent, style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center)
     }
 }

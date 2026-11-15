@@ -169,44 +169,48 @@ private fun HomeScreen() {
         }
     }
 
+    fun startRecording() {
+        var newRecorder: MediaRecorder? = null
+        var outputFile: File? = null
+        try {
+            val dir = File(context.filesDir, "recordings").apply { mkdirs() }
+            val file = File(dir, "SV_${System.currentTimeMillis()}.m4a")
+            outputFile = file
+            newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(context)
+            } else {
+                @Suppress("DEPRECATION")
+                MediaRecorder()
+            }
+            newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            newRecorder.setAudioEncodingBitRate(128000)
+            newRecorder.setAudioSamplingRate(44100)
+            newRecorder.setOutputFile(file.absolutePath)
+            newRecorder.prepare()
+            newRecorder.start()
+            recorder = newRecorder
+            activeFile = file
+            recordingStartedAt = System.currentTimeMillis()
+            elapsedSeconds = 0
+            isRecording = true
+            status = "جارٍ التسجيل..."
+        } catch (_: Exception) {
+            try { newRecorder?.release() } catch (_: Exception) { }
+            outputFile?.delete()
+            recorder = null
+            activeFile = null
+            isRecording = false
+            status = "تعذر بدء التسجيل: تحقق من الميكروفون"
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            try {
-                val dir = File(context.filesDir, "recordings").apply { mkdirs() }
-                val file = File(dir, "SV_${System.currentTimeMillis()}.m4a")
-                val newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    MediaRecorder(context)
-                } else {
-                    @Suppress("DEPRECATION")
-                    MediaRecorder()
-                }
-                newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-                newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                newRecorder.setAudioEncodingBitRate(128000)
-                newRecorder.setAudioSamplingRate(44100)
-                newRecorder.setOutputFile(file.absolutePath)
-                newRecorder.prepare()
-                newRecorder.start()
-                recorder = newRecorder
-                activeFile = file
-                recordingStartedAt = System.currentTimeMillis()
-                elapsedSeconds = 0
-                isRecording = true
-                status = "جارٍ التسجيل..."
-            } catch (e: Exception) {
-                try { recorder?.release() } catch (_: Exception) { }
-                recorder = null
-                activeFile?.delete()
-                activeFile = null
-                isRecording = false
-                status = "تعذر بدء التسجيل: تحقق من الميكروفون"
-            }
-        } else {
-            status = "لم تمنح إذن الميكروفون"
-        }
+        if (granted) startRecording()
+        else status = "لم تمنح إذن الميكروفون"
     }
 
     LaunchedEffect(isRecording) {
@@ -266,7 +270,7 @@ private fun HomeScreen() {
                                 context, Manifest.permission.RECORD_AUDIO
                             ) == PackageManager.PERMISSION_GRANTED
                         ) {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            startRecording()
                         } else {
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }

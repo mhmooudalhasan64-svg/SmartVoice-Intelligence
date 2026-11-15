@@ -242,6 +242,8 @@ private fun HomeScreen() {
                 style = MaterialTheme.typography.bodyLarge, color = Muted)
         }
 
+        AccountAuthCard()
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),

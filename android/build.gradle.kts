@@ -2,4 +2,8 @@ plugins {
     id("com.android.application") version "8.7.3" apply false
     id("org.jetbrains.kotlin.android") version "2.0.21" apply false
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
+
+    // Applied by the app module only after the Firebase project config is supplied.
+    id("com.google.gms.google-services") version "4.6.0" apply false
+    id("com.google.firebase.crashlytics") version "3.0.8" apply false
 }

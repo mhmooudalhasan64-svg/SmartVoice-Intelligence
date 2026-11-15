@@ -213,6 +213,7 @@ private fun HomeScreen() {
                 style = MaterialTheme.typography.bodyLarge, color = Muted)
             Text("ORIN • المساعد الذكي",
                 style = MaterialTheme.typography.labelLarge, color = Accent)
+            GoogleAccountSection()
         }
 
         Card(

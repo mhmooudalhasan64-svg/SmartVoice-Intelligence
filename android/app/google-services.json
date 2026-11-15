@@ -6,7 +6,7 @@
   },
   "client": [{
     "client_info": {
-      "mobilesdk_app_id": "1:306532348283:android:2ce75059b9bde6c6aa8dde",
+      "mobilesdk_app_id": "1:306532348283:android:2ce75059b9dbe6c6aa8dde",
       "android_client_info": {"package_name": "com.aurevon.velora"}
     },
     "oauth_client": [],

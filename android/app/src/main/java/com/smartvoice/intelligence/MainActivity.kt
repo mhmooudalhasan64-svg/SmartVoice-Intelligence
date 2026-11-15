@@ -488,11 +488,21 @@ private fun RecordingRow(
                 Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onPlay) {
+            IconButton(
+                onClick = onPlay,
+                modifier = Modifier.padding(horizontal = 3.dp)
+                    .shadow(6.dp, CircleShape)
+                    .border(1.dp, Accent.copy(alpha = 0.55f), CircleShape)
+            ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = if (isPlaying) "يعمل" else "تشغيل",
                     tint = Accent)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.padding(horizontal = 3.dp)
+                    .shadow(6.dp, CircleShape)
+                    .border(1.dp, Color(0xFFFF9292).copy(alpha = 0.55f), CircleShape)
+            ) {
                 Icon(Icons.Default.Delete, contentDescription = "حذف التسجيل",
                     tint = Color(0xFFFF9292))
             }

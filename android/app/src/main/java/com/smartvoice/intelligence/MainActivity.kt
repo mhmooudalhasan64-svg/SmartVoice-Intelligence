@@ -111,8 +111,8 @@ private fun HomeScreen() {
     val context = LocalContext.current
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var activeFile by remember { mutableStateOf<File?>(null) }
-    var isRecording by remember { mutableStateOf(false) }
-    var recordingStartedAt by remember { mutableStateOf(0L) }
+    var isRecording by remember { mutableStateOf(context.getSharedPreferences(RecordingForegroundService.PREFS, 0).getBoolean(RecordingForegroundService.KEY_ACTIVE, false)) }
+    var recordingStartedAt by remember { mutableStateOf(context.getSharedPreferences(RecordingForegroundService.PREFS, 0).getLong(RecordingForegroundService.KEY_STARTED, 0L)) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
@@ -146,63 +146,29 @@ private fun HomeScreen() {
     }
 
     fun stopRecording() {
-        val current = recorder
-        try {
-            current?.stop()
-            activeFile?.let { file ->
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").writeText(elapsedSeconds.toString())
-            }
-            status = "تم حفظ التسجيل"
-        } catch (_: RuntimeException) {
-            activeFile?.let { file ->
-                file.delete()
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").delete()
-            }
-            status = "التسجيل قصير جداً ولم يتم حفظه"
-        } finally {
-            try { current?.reset() } catch (_: Exception) { }
-            try { current?.release() } catch (_: Exception) { }
-            recorder = null
-            activeFile = null
-            isRecording = false
-            refreshRecordings()
-        }
+        val intent = android.content.Intent(context, RecordingForegroundService::class.java)
+            .setAction(RecordingForegroundService.ACTION_STOP)
+        context.startService(intent)
+        isRecording = false
+        status = "تم إيقاف التسجيل وحفظه"
+        refreshRecordings()
     }
 
     fun startRecording() {
-        var newRecorder: MediaRecorder? = null
-        var outputFile: File? = null
         try {
-            val dir = File(context.filesDir, "recordings").apply { mkdirs() }
-            val file = File(dir, "SV_${System.currentTimeMillis()}.m4a")
-            outputFile = file
-            newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(context)
+            val intent = android.content.Intent(context, RecordingForegroundService::class.java)
+                .setAction(RecordingForegroundService.ACTION_START)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(context, intent)
             } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
+                context.startService(intent)
             }
-            newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            newRecorder.setAudioEncodingBitRate(128000)
-            newRecorder.setAudioSamplingRate(44100)
-            newRecorder.setOutputFile(file.absolutePath)
-            newRecorder.prepare()
-            newRecorder.start()
-            recorder = newRecorder
-            activeFile = file
             recordingStartedAt = System.currentTimeMillis()
-            elapsedSeconds = 0
             isRecording = true
-            status = "جارٍ التسجيل..."
+            status = "جارٍ التسجيل في الخلفية..."
         } catch (_: Exception) {
-            try { newRecorder?.release() } catch (_: Exception) { }
-            outputFile?.delete()
-            recorder = null
-            activeFile = null
             isRecording = false
-            status = "تعذر بدء التسجيل: تحقق من الميكروفون"
+            status = "تعذر بدء خدمة التسجيل في الخلفية"
         }
     }
 
@@ -225,8 +191,7 @@ private fun HomeScreen() {
         modelInstalled = modelInstaller.isInstalled()
         if (modelInstalled) modelStatus = "نموذج العربية جاهز على الجهاز"
         onDispose {
-            try { recorder?.stop() } catch (_: Exception) { }
-            try { recorder?.release() } catch (_: Exception) { }
+            // The foreground service owns recording and survives UI disposal.
             try { player?.release() } catch (_: Exception) { }
         }
     }

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -211,6 +213,26 @@ private fun HomeScreen() {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF121419)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("مساحة واحدة لصوتك وأفكارك ومهامك",
+                    color = Color.White, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "VELORA منصة ذكية للتسجيل الصوتي والتفريغ العربي محلياً، تساعدك على حفظ المعلومات وتحويلها إلى مهام ومواعيد وأفكار منظمة. تسجيلاتك تبقى على جهازك.",
+                    color = Muted, style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Start
+                )
+                Text("VOICE CORE  •  POWERED BY AUREVON",
+                    color = Accent, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Panel)
         ) {
@@ -242,11 +264,17 @@ private fun HomeScreen() {
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .shadow(12.dp, RoundedCornerShape(18.dp))
+                        .border(1.dp, Color(0xFFFFE5A3).copy(alpha = 0.55f), RoundedCornerShape(18.dp)),
+                    shape = RoundedCornerShape(18.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 10.dp, pressedElevation = 2.dp,
+                        focusedElevation = 10.dp, hoveredElevation = 12.dp
+                    ),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRecording) Color(0xFFB45353) else Accent,
-                        contentColor = Color.White
+                        containerColor = if (isRecording) Color(0xFF9F4141) else Accent,
+                        contentColor = if (isRecording) Color.White else Ink
                     )
                 ) {
                     Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, null)
@@ -342,9 +370,16 @@ private fun HomeScreen() {
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth()
+                            .shadow(8.dp, RoundedCornerShape(15.dp))
+                            .border(1.dp, Color(0xFFFFE5A3).copy(alpha = 0.42f), RoundedCornerShape(15.dp)),
                         enabled = !isInstallingModel,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(15.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 7.dp, pressedElevation = 1.dp,
+                            focusedElevation = 7.dp, hoveredElevation = 9.dp
+                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB99143), contentColor = Ink)
                     ) {
                         Text(modelProgress?.let { "تنزيل النموذج • $it%" } ?: "تنزيل نموذج العربية")
                     }
@@ -385,9 +420,16 @@ private fun HomeScreen() {
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth()
+                            .shadow(8.dp, RoundedCornerShape(15.dp))
+                            .border(1.dp, Color(0xFFFFE5A3).copy(alpha = 0.42f), RoundedCornerShape(15.dp)),
                         enabled = recordings.isNotEmpty() && !isTranscribing,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(15.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 7.dp, pressedElevation = 1.dp,
+                            focusedElevation = 7.dp, hoveredElevation = 9.dp
+                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB99143), contentColor = Ink)
                     ) {
                         Text(if (isTranscribing) "جارٍ التفريغ..." else "تفريغ أحدث تسجيل")
                     }

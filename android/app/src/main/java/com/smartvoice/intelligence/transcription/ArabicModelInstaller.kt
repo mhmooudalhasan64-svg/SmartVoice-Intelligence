@@ -34,100 +34,105 @@ class ArabicModelInstaller(private val filesDirectory: File) {
     suspend fun install(onProgress: (downloadPercent: Int?) -> Unit = {}): File =
         withContext(Dispatchers.IO) {
             check(!isInstalled()) { "Arabic model is already installed" }
-            val root = File(filesDirectory, "speech-models").apply { mkdirs() }
+            val root = File(filesDirectory, "speech-models")
+            check(root.exists() || root.mkdirs()) { "Could not create model directory" }
             val archive = File(root, "$MODEL_ID.zip.part")
             val staging = File(root, "$MODEL_ID.installing")
             val destination = installedDirectory
             archive.delete()
             staging.deleteRecursively()
-            staging.mkdirs()
+            check(staging.mkdirs()) { "Could not create model staging directory" }
 
-            val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 20_000
-                readTimeout = 45_000
-                requestMethod = "GET"
-                instanceFollowRedirects = true
-            }
             try {
-                connection.connect()
-                check(connection.responseCode in 200..299) {
-                    "Model download failed: HTTP ${connection.responseCode}"
+                val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 20_000
+                    readTimeout = 45_000
+                    requestMethod = "GET"
+                    instanceFollowRedirects = true
                 }
-                val expectedLength = connection.contentLengthLong
-                check(expectedLength <= 0 || expectedLength <= MAX_ARCHIVE_BYTES) {
-                    "Unexpected model archive size"
-                }
-                BufferedInputStream(connection.inputStream).use { input ->
-                    FileOutputStream(archive).use { output ->
-                        val buffer = ByteArray(64 * 1024)
-                        var downloaded = 0L
-                        while (true) {
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            downloaded += count
-                            check(downloaded <= MAX_ARCHIVE_BYTES) { "Model archive exceeds size limit" }
-                            output.write(buffer, 0, count)
-                            val percent = if (expectedLength > 0) {
-                                (downloaded * 100 / expectedLength).toInt().coerceIn(0, 100)
-                            } else null
-                            onProgress(percent)
-                        }
+                try {
+                    connection.connect()
+                    check(connection.responseCode in 200..299) {
+                        "Model download failed: HTTP ${connection.responseCode}"
                     }
-                }
-            } finally {
-                connection.disconnect()
-            }
-
-            var extractedBytes = 0L
-            val stagingCanonical = staging.canonicalFile
-            ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
-                while (true) {
-                    val entry = zip.nextEntry ?: break
-                    val safeName = entry.name.replace('\\', '/')
-                    check(!safeName.startsWith("/") && !safeName.split('/').any { it == ".." }) {
-                        "Unsafe model archive entry"
+                    val expectedLength = connection.contentLengthLong
+                    check(expectedLength <= 0 || expectedLength <= MAX_ARCHIVE_BYTES) {
+                        "Unexpected model archive size"
                     }
-                    val output = File(staging, safeName).canonicalFile
-                    check(output.path.startsWith(stagingCanonical.path + File.separator)) {
-                        "Model archive path escapes install directory"
-                    }
-                    if (entry.isDirectory) {
-                        output.mkdirs()
-                    } else {
-                        output.parentFile?.mkdirs()
-                        FileOutputStream(output).use { fileOut ->
+                    BufferedInputStream(connection.inputStream).use { input ->
+                        FileOutputStream(archive).use { output ->
                             val buffer = ByteArray(64 * 1024)
+                            var downloaded = 0L
                             while (true) {
-                                val count = zip.read(buffer)
+                                val count = input.read(buffer)
                                 if (count < 0) break
-                                extractedBytes += count
-                                check(extractedBytes <= MAX_EXTRACTED_BYTES) {
-                                    "Extracted model exceeds size limit"
+                                downloaded += count
+                                check(downloaded <= MAX_ARCHIVE_BYTES) {
+                                    "Model archive exceeds size limit"
                                 }
-                                fileOut.write(buffer, 0, count)
+                                output.write(buffer, 0, count)
+                                val percent = if (expectedLength > 0) {
+                                    (downloaded * 100 / expectedLength).toInt().coerceIn(0, 100)
+                                } else null
+                                onProgress(percent)
                             }
                         }
                     }
-                    zip.closeEntry()
+                } finally {
+                    connection.disconnect()
                 }
-            }
 
-            val modelRoot = findModelRoot(staging)
-            check(File(modelRoot, "am/final.mdl").isFile) { "Model archive is incomplete" }
-            check(File(modelRoot, "conf/mfcc.conf").isFile) { "Model configuration is missing" }
-            check(File(modelRoot, "graph/words.txt").isFile) { "Model vocabulary is missing" }
+                var extractedBytes = 0L
+                val stagingCanonical = staging.canonicalFile
+                ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
+                    while (true) {
+                        val entry = zip.nextEntry ?: break
+                        val safeName = entry.name.replace('\\\\', '/')
+                        check(!safeName.startsWith("/") && !safeName.split('/').any { it == ".." }) {
+                            "Unsafe model archive entry"
+                        }
+                        val output = File(staging, safeName).canonicalFile
+                        check(output.path.startsWith(stagingCanonical.path + File.separator)) {
+                            "Model archive path escapes install directory"
+                        }
+                        if (entry.isDirectory) {
+                            check(output.exists() || output.mkdirs()) {
+                                "Could not create model directory entry"
+                            }
+                        } else {
+                            check(output.parentFile?.exists() == true || output.parentFile?.mkdirs() == true) {
+                                "Could not create model extraction directory"
+                            }
+                            FileOutputStream(output).use { fileOut ->
+                                val buffer = ByteArray(64 * 1024)
+                                while (true) {
+                                    val count = zip.read(buffer)
+                                    if (count < 0) break
+                                    extractedBytes += count
+                                    check(extractedBytes <= MAX_EXTRACTED_BYTES) {
+                                        "Extracted model exceeds size limit"
+                                    }
+                                    fileOut.write(buffer, 0, count)
+                                }
+                            }
+                        }
+                        zip.closeEntry()
+                    }
+                }
 
-            destination.deleteRecursively()
-            val installed = if (modelRoot == staging) {
-                staging.renameTo(destination)
-            } else {
-                modelRoot.renameTo(destination)
+                val modelRoot = findModelRoot(staging)
+                check(File(modelRoot, "am/final.mdl").isFile) { "Model archive is incomplete" }
+                check(File(modelRoot, "conf/mfcc.conf").isFile) { "Model configuration is missing" }
+                check(File(modelRoot, "graph/words.txt").isFile) { "Model vocabulary is missing" }
+
+                destination.deleteRecursively()
+                check(modelRoot.renameTo(destination)) { "Could not finalize model installation" }
+                onProgress(100)
+                destination
+            } finally {
+                archive.delete()
+                staging.deleteRecursively()
             }
-            check(installed) { "Could not finalize model installation" }
-            staging.deleteRecursively()
-            archive.delete()
-            onProgress(100)
-            destination
         }
 
     private fun findModelRoot(staging: File): File {

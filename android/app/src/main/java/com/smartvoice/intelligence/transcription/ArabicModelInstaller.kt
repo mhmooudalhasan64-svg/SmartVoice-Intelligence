@@ -87,7 +87,7 @@ class ArabicModelInstaller(private val filesDirectory: File) {
                 ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
                     while (true) {
                         val entry = zip.nextEntry ?: break
-                        val safeName = entry.name.replace('\\\\', '/')
+                        val safeName = entry.name.replace('\\', '/')
                         check(!safeName.startsWith("/") && !safeName.split('/').any { it == ".." }) {
                             "Unsafe model archive entry"
                         }

@@ -111,6 +111,7 @@ private data class RecordingItem(val file: File, val durationSeconds: Long?)
 @Composable
 private fun HomeScreen() {
     val context = LocalContext.current
+    var selectedTab by remember { mutableStateOf("home") }
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var activeFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(context.getSharedPreferences(RecordingForegroundService.PREFS, 0).getBoolean(RecordingForegroundService.KEY_ACTIVE, false)) }
@@ -202,6 +203,7 @@ private fun HomeScreen() {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (selectedTab == "home") {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("VELORA", style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, color = Color.White)
@@ -289,6 +291,9 @@ private fun HomeScreen() {
             }
         }
 
+        }
+
+        if (selectedTab == "library") {
         Text("تسجيلات VELORA المحفوظة (${recordings.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = Color.White)
@@ -336,6 +341,9 @@ private fun HomeScreen() {
             }
         }
 
+        }
+
+        if (selectedTab == "tools") {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -453,6 +461,40 @@ private fun HomeScreen() {
             FeatureRow(Icons.Default.Lightbulb, "الأفكار والملاحظات", "حفظ الأفكار وربطها بمصدرها")
         }
         Spacer(Modifier.height(2.dp))
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF121419)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Accent.copy(alpha = 0.3f))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                listOf("home" to "الرئيسية", "library" to "التسجيلات", "tools" to "الأدوات").forEach { (key, label) ->
+                    Button(
+                        onClick = { selectedTab = key },
+                        modifier = Modifier.weight(1f)
+                            .shadow(if (selectedTab == key) 8.dp else 0.dp, RoundedCornerShape(13.dp))
+                            .border(1.dp, if (selectedTab == key) Accent else Color(0xFF34363C), RoundedCornerShape(13.dp)),
+                        shape = RoundedCornerShape(13.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = if (selectedTab == key) 7.dp else 1.dp,
+                            pressedElevation = 1.dp
+                        ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == key) Color(0xFFB99143) else Panel,
+                            contentColor = if (selectedTab == key) Ink else Color.White
+                        )
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+            }
+        }
+
         Text("VELORA • VOICE CORE 0.0.1", modifier = Modifier.fillMaxWidth(),
             color = Muted, style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center)

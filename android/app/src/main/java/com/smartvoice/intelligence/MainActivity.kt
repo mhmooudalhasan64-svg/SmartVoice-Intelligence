@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -69,16 +71,16 @@ import java.util.Locale
 import com.smartvoice.intelligence.transcription.ArabicModelInstaller
 import com.smartvoice.intelligence.transcription.VoskTranscriptionEngine
 
-private val Ink = Color(0xFF111827)
-private val Panel = Color(0xFF1F2937)
-private val Accent = Color(0xFF7C9EFF)
-private val Muted = Color(0xFF9CA3AF)
+private val Ink = Color(0xFF090A0D)
+private val Panel = Color(0xFF191B20)
+private val Accent = Color(0xFFD6B15C)
+private val Muted = Color(0xFFA6A09A)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SmartVoiceTheme {
+            VeloraTheme {
                 Surface(Modifier.fillMaxSize(), color = Ink) {
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalLayoutDirection provides LayoutDirection.Rtl
@@ -90,7 +92,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SmartVoiceTheme(content: @Composable () -> Unit) {
+private fun VeloraTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = Accent,
@@ -109,10 +111,11 @@ private data class RecordingItem(val file: File, val durationSeconds: Long?)
 @Composable
 private fun HomeScreen() {
     val context = LocalContext.current
+    var selectedTab by remember { mutableStateOf("home") }
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var activeFile by remember { mutableStateOf<File?>(null) }
-    var isRecording by remember { mutableStateOf(false) }
-    var recordingStartedAt by remember { mutableStateOf(0L) }
+    var isRecording by remember { mutableStateOf(context.getSharedPreferences(RecordingForegroundService.PREFS, 0).getBoolean(RecordingForegroundService.KEY_ACTIVE, false)) }
+    var recordingStartedAt by remember { mutableStateOf(context.getSharedPreferences(RecordingForegroundService.PREFS, 0).getLong(RecordingForegroundService.KEY_STARTED, 0L)) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
@@ -146,63 +149,29 @@ private fun HomeScreen() {
     }
 
     fun stopRecording() {
-        val current = recorder
-        try {
-            current?.stop()
-            activeFile?.let { file ->
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").writeText(elapsedSeconds.toString())
-            }
-            status = "تم حفظ التسجيل"
-        } catch (_: RuntimeException) {
-            activeFile?.let { file ->
-                file.delete()
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").delete()
-            }
-            status = "التسجيل قصير جداً ولم يتم حفظه"
-        } finally {
-            try { current?.reset() } catch (_: Exception) { }
-            try { current?.release() } catch (_: Exception) { }
-            recorder = null
-            activeFile = null
-            isRecording = false
-            refreshRecordings()
-        }
+        val intent = android.content.Intent(context, RecordingForegroundService::class.java)
+            .setAction(RecordingForegroundService.ACTION_STOP)
+        context.startService(intent)
+        isRecording = false
+        status = "تم إيقاف التسجيل وحفظه"
+        refreshRecordings()
     }
 
     fun startRecording() {
-        var newRecorder: MediaRecorder? = null
-        var outputFile: File? = null
         try {
-            val dir = File(context.filesDir, "recordings").apply { mkdirs() }
-            val file = File(dir, "SV_${System.currentTimeMillis()}.m4a")
-            outputFile = file
-            newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(context)
+            val intent = android.content.Intent(context, RecordingForegroundService::class.java)
+                .setAction(RecordingForegroundService.ACTION_START)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(context, intent)
             } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
+                context.startService(intent)
             }
-            newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            newRecorder.setAudioEncodingBitRate(128000)
-            newRecorder.setAudioSamplingRate(44100)
-            newRecorder.setOutputFile(file.absolutePath)
-            newRecorder.prepare()
-            newRecorder.start()
-            recorder = newRecorder
-            activeFile = file
             recordingStartedAt = System.currentTimeMillis()
-            elapsedSeconds = 0
             isRecording = true
-            status = "جارٍ التسجيل..."
+            status = "جارٍ التسجيل في الخلفية..."
         } catch (_: Exception) {
-            try { newRecorder?.release() } catch (_: Exception) { }
-            outputFile?.delete()
-            recorder = null
-            activeFile = null
             isRecording = false
-            status = "تعذر بدء التسجيل: تحقق من الميكروفون"
+            status = "تعذر بدء خدمة التسجيل في الخلفية"
         }
     }
 
@@ -225,21 +194,46 @@ private fun HomeScreen() {
         modelInstalled = modelInstaller.isInstalled()
         if (modelInstalled) modelStatus = "نموذج العربية جاهز على الجهاز"
         onDispose {
-            try { recorder?.stop() } catch (_: Exception) { }
-            try { recorder?.release() } catch (_: Exception) { }
+            // The foreground service owns recording and survives UI disposal.
             try { player?.release() } catch (_: Exception) { }
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
+    Column(modifier = Modifier.fillMaxSize()) {
+      Column(
+        modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+      ) {
+        if (selectedTab == "home") {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("SmartVoice", style = MaterialTheme.typography.headlineMedium,
+            Text("VELORA", style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, color = Color.White)
-            Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
+            Text("VOICE CORE • التوثيق والتنظيم الذكي",
                 style = MaterialTheme.typography.bodyLarge, color = Muted)
+            Text("ORIN • المساعد الذكي",
+                style = MaterialTheme.typography.labelLarge, color = Accent)
+            GoogleAccountSection()
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF121419)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("مساحة واحدة لصوتك وأفكارك ومهامك",
+                    color = Color.White, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "VELORA منصة ذكية للتسجيل الصوتي والتفريغ العربي محلياً، تساعدك على حفظ المعلومات وتحويلها إلى مهام ومواعيد وأفكار منظمة. تسجيلاتك تبقى على جهازك.",
+                    color = Muted, style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Start
+                )
+                Text("VOICE CORE  •  POWERED BY AUREVON",
+                    color = Accent, style = MaterialTheme.typography.labelSmall)
+            }
         }
 
         Card(
@@ -275,11 +269,17 @@ private fun HomeScreen() {
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .shadow(12.dp, RoundedCornerShape(18.dp))
+                        .border(1.dp, Color(0xFFFFE5A3).copy(alpha = 0.55f), RoundedCornerShape(18.dp)),
+                    shape = RoundedCornerShape(18.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 10.dp, pressedElevation = 2.dp,
+                        focusedElevation = 10.dp, hoveredElevation = 12.dp
+                    ),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRecording) Color(0xFFB45353) else Accent,
-                        contentColor = Color.White
+                        containerColor = if (isRecording) Color(0xFF9F4141) else Accent,
+                        contentColor = if (isRecording) Color.White else Ink
                     )
                 ) {
                     Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, null)
@@ -294,7 +294,10 @@ private fun HomeScreen() {
             }
         }
 
-        Text("التسجيلات المحفوظة (${recordings.size})",
+        }
+
+        if (selectedTab == "library") {
+        Text("تسجيلات VELORA المحفوظة (${recordings.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = Color.White)
 
@@ -341,6 +344,9 @@ private fun HomeScreen() {
             }
         }
 
+        }
+
+        if (selectedTab == "tools") {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -375,9 +381,16 @@ private fun HomeScreen() {
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth()
+                            .shadow(8.dp, RoundedCornerShape(15.dp))
+                            .border(1.dp, Color(0xFFFFE5A3).copy(alpha = 0.42f), RoundedCornerShape(15.dp)),
                         enabled = !isInstallingModel,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(15.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 7.dp, pressedElevation = 1.dp,
+                            focusedElevation = 7.dp, hoveredElevation = 9.dp
+                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB99143), contentColor = Ink)
                     ) {
                         Text(modelProgress?.let { "تنزيل النموذج • $it%" } ?: "تنزيل نموذج العربية")
                     }
@@ -418,9 +431,16 @@ private fun HomeScreen() {
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth()
+                            .shadow(8.dp, RoundedCornerShape(15.dp))
+                            .border(1.dp, Color(0xFFFFE5A3).copy(alpha = 0.42f), RoundedCornerShape(15.dp)),
                         enabled = recordings.isNotEmpty() && !isTranscribing,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(15.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 7.dp, pressedElevation = 1.dp,
+                            focusedElevation = 7.dp, hoveredElevation = 9.dp
+                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB99143), contentColor = Ink)
                     ) {
                         Text(if (isTranscribing) "جارٍ التفريغ..." else "تفريغ أحدث تسجيل")
                     }
@@ -436,7 +456,7 @@ private fun HomeScreen() {
             }
         }
 
-        Text("مساحات التنظيم", style = MaterialTheme.typography.titleMedium,
+        Text("مساحات التنظيم الذكي", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = Color.White)
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             FeatureRow(Icons.Default.TaskAlt, "المهام", "استخراج الأعمال المطلوب تنفيذها")
@@ -444,9 +464,46 @@ private fun HomeScreen() {
             FeatureRow(Icons.Default.Lightbulb, "الأفكار والملاحظات", "حفظ الأفكار وربطها بمصدرها")
         }
         Spacer(Modifier.height(2.dp))
-        Text("نسخة تأسيسية • 0.2.0", modifier = Modifier.fillMaxWidth(),
+        }
+
+        Text("VELORA • VOICE CORE 0.0.1", modifier = Modifier.fillMaxWidth(),
             color = Muted, style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center)
+        Text("POWERED BY AUREVON", modifier = Modifier.fillMaxWidth(),
+            color = Accent, style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF121419)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Accent.copy(alpha = 0.3f))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                listOf("home" to "الرئيسية", "library" to "التسجيلات", "tools" to "الأدوات").forEach { (key, label) ->
+                    Button(
+                        onClick = { selectedTab = key },
+                        modifier = Modifier.weight(1f)
+                            .shadow(if (selectedTab == key) 8.dp else 0.dp, RoundedCornerShape(13.dp))
+                            .border(1.dp, if (selectedTab == key) Accent else Color(0xFF34363C), RoundedCornerShape(13.dp)),
+                        shape = RoundedCornerShape(13.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = if (selectedTab == key) 7.dp else 1.dp,
+                            pressedElevation = 1.dp
+                        ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == key) Color(0xFFB99143) else Panel,
+                            contentColor = if (selectedTab == key) Ink else Color.White
+                        )
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+            }
+        }
+
     }
 }
 
@@ -476,11 +533,21 @@ private fun RecordingRow(
                 Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onPlay) {
+            IconButton(
+                onClick = onPlay,
+                modifier = Modifier.padding(horizontal = 3.dp)
+                    .shadow(6.dp, CircleShape)
+                    .border(1.dp, Accent.copy(alpha = 0.55f), CircleShape)
+            ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = if (isPlaying) "يعمل" else "تشغيل",
                     tint = Accent)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.padding(horizontal = 3.dp)
+                    .shadow(6.dp, CircleShape)
+                    .border(1.dp, Color(0xFFFF9292).copy(alpha = 0.55f), CircleShape)
+            ) {
                 Icon(Icons.Default.Delete, contentDescription = "حذف التسجيل",
                     tint = Color(0xFFFF9292))
             }

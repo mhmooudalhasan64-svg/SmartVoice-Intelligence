@@ -4,16 +4,24 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Keep local builds working before the owner creates the Firebase project.
+// Once google-services.json is added, Firebase Gradle plugins are enabled automatically.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 android {
     namespace = "com.smartvoice.intelligence"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.smartvoice.intelligence"
+        // Separate package so VELORA can be installed alongside the legacy app.
+        applicationId = "com.aurevon.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 1
+        versionName = "0.0.1"
     }
 
     buildFeatures {
@@ -31,6 +39,20 @@ android {
 }
 
 dependencies {
+    // Firebase products. Versions are aligned through the Firebase BoM.
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-config")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+
+    // Google account picker / Credential Manager for modern Google sign-in.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)

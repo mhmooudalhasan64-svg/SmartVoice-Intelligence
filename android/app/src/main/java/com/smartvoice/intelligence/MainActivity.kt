@@ -199,10 +199,12 @@ private fun HomeScreen() {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
+    Column(modifier = Modifier.fillMaxSize()) {
+      Column(
+        modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+      ) {
         if (selectedTab == "home") {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("VELORA", style = MaterialTheme.typography.headlineMedium,
@@ -463,6 +465,12 @@ private fun HomeScreen() {
         Spacer(Modifier.height(2.dp))
         }
 
+        Text("VELORA • VOICE CORE 0.0.1", modifier = Modifier.fillMaxWidth(),
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center)
+        Text("POWERED BY AUREVON", modifier = Modifier.fillMaxWidth(),
+            color = Accent, style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -495,12 +503,6 @@ private fun HomeScreen() {
             }
         }
 
-        Text("VELORA • VOICE CORE 0.0.1", modifier = Modifier.fillMaxWidth(),
-            color = Muted, style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center)
-        Text("POWERED BY AUREVON", modifier = Modifier.fillMaxWidth(),
-            color = Accent, style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center)
     }
 }
 

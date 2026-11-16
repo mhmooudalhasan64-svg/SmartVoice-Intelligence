@@ -13,7 +13,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.aurevon.velora.MainActivity
 import com.aurevon.velora.R
-import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -36,7 +35,7 @@ class StudyReminderWorker(
     override suspend fun doWork(): Result {
         val subject = inputData.getString(KEY_SUBJECT) ?: return Result.failure()
         val type = inputData.getString(KEY_TYPE) ?: return Result.failure()
-        val date = inputData.getString(KEY_DATE) ?: return Result.failure()
+        inputData.getString(KEY_DATE) ?: return Result.failure()
 
         createNotificationChannel(applicationContext)
         val typeLabel = when (type) {
@@ -79,6 +78,7 @@ class StudyReminderWorker(
 
         fun schedule(context: Context, event: StudyEventDraft): Boolean {
             val eventDate = event.date ?: return false
+            if (eventDate.isBefore(java.time.LocalDate.now(ZoneId.systemDefault()))) return false
             val target = ZonedDateTime.of(
                 eventDate,
                 LocalTime.of(8, 0),

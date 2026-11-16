@@ -50,15 +50,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import com.aurevon.velora.recordings.RecordingController
 import com.aurevon.velora.recordings.StopRecordingResult
 import com.aurevon.velora.transcription.ArabicModelInstaller
-import com.aurevon.velora.transcription.VoskTranscriptionEngine
+import com.aurevon.velora.transcription.TranscriptionController
 import com.aurevon.velora.ui.components.FeatureRow
 import com.aurevon.velora.ui.components.RecordingItem
 import com.aurevon.velora.ui.components.RecordingRow
@@ -310,20 +308,18 @@ private fun HomeScreen() {
                                 modelStatus = "جارٍ تفريغ أحدث تسجيل..."
                                 scope.launch {
                                     try {
-                                        val engine = VoskTranscriptionEngine(
-                                            modelInstaller.installedDirectory,
-                                            File(context.cacheDir, "transcription")
+                                        val transcriptionController = TranscriptionController(
+                                            modelDirectory = modelInstaller.installedDirectory,
+                                            cacheDirectory = context.cacheDir
                                         )
-                                        val result = withContext(Dispatchers.IO) {
-                                            engine.transcribe(
-                                                recordingId = latest.file.nameWithoutExtension,
-                                                audioFile = latest.file,
-                                                languageTag = "ar",
-                                                onProgress = { percent ->
-                                                    scope.launch { modelProgress = percent }
-                                                }
-                                            )
-                                        }
+                                        val result = transcriptionController.transcribe(
+                                            recordingId = latest.file.nameWithoutExtension,
+                                            audioFile = latest.file,
+                                            languageTag = "ar",
+                                            onProgress = { percent ->
+                                                scope.launch { modelProgress = percent }
+                                            }
+                                        )
                                         transcriptText = result.fullText.ifBlank { "لم يتم التعرف على كلام واضح." }
                                         modelStatus = "اكتمل التفريغ محليًا"
                                     } catch (error: Exception) {

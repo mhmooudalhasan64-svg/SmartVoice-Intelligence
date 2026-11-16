@@ -4,35 +4,27 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
-import com.aurevon.velora.ui.components.RecordingItem
 import java.io.File
 
 /**
- * Owns the Android audio resources and local recording-file operations.
- * UI state and permission handling remain in the Compose screen.
+ * Coordinates Android audio resources and delegates recording-file operations
+ * to RecordingRepository. UI state and permission handling remain in Compose.
  */
-internal class RecordingController(private val context: Context) {
+internal class RecordingController(context: Context) {
     private var recorder: MediaRecorder? = null
     private var activeFile: File? = null
     private var player: MediaPlayer? = null
+    private val repository = RecordingRepository(File(context.filesDir, "recordings"))
 
-    fun listRecordings(): List<RecordingItem> {
-        val directory = File(context.filesDir, "recordings")
-        return (directory.listFiles()?.filter { it.isFile && it.extension == "m4a" }
-            ?.sortedByDescending { it.lastModified() } ?: emptyList())
-            .map { file ->
-                val durationFile = File(file.parentFile, "${file.nameWithoutExtension}.duration")
-                val duration = durationFile.takeIf { it.exists() }
-                    ?.readText()?.trim()?.toLongOrNull()
-                RecordingItem(file, duration)
-            }
-    }
+    fun listRecordings(): List<RecordingItem> = repository.listRecordings()
+
+    fun deleteRecording(file: File): Boolean = repository.deleteRecording(file)
 
     fun startRecording(): Boolean {
         var newRecorder: MediaRecorder? = null
         var outputFile: File? = null
         return try {
-            val directory = File(context.filesDir, "recordings").apply { mkdirs() }
+            val directory = repository.ensureDirectory()
             val file = File(directory, "SV_${System.currentTimeMillis()}.m4a")
             outputFile = file
             newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

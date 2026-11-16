@@ -53,14 +53,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.io.File
 import com.aurevon.velora.recordings.RecordingController
+import com.aurevon.velora.recordings.RecordingItem
 import com.aurevon.velora.recordings.StopRecordingResult
 import com.aurevon.velora.transcription.ArabicModelController
 import com.aurevon.velora.transcription.ArabicModelInstallState
 import com.aurevon.velora.transcription.TranscriptionController
 import com.aurevon.velora.ui.components.FeatureRow
-import com.aurevon.velora.ui.components.RecordingItem
 import com.aurevon.velora.ui.components.RecordingRow
 import com.aurevon.velora.ui.theme.Accent
 import com.aurevon.velora.ui.theme.Ink
@@ -247,9 +246,11 @@ private fun HomeScreen() {
                         },
                         onDelete = {
                             if (playingName == item.file.name) stopPlayback()
-                            item.file.delete()
-                            File(item.file.parentFile, "${item.file.nameWithoutExtension}.duration").delete()
-                            refreshRecordings()
+                            if (recordingController.deleteRecording(item.file)) {
+                                refreshRecordings()
+                            } else {
+                                status = "تعذر حذف التسجيل"
+                            }
                         }
                     )
                 }

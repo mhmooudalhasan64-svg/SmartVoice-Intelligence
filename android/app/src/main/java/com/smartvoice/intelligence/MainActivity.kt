@@ -109,7 +109,7 @@ private fun HomeScreen() {
     var confirmedStudyEvents by remember { mutableStateOf(emptyList<StudyEventDraft>()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val recordingController = remember { RecordingController(context) }
-    val modelController = remember { ArabicModelController(context.filesDir) }
+    val modelController = remember { ArabicModelController(context) }
     val studyEventRepository = remember { StudyEventRepository(java.io.File(context.filesDir, "study/confirmed-events.db")) }
     val voiceMessageParser = remember { VoiceMessageDraftParser() }
     val modelState by modelController.state.collectAsState()
@@ -245,6 +245,7 @@ private fun HomeScreen() {
         modelController.refresh()
         onDispose {
             recordingController.release()
+            modelController.close()
         }
     }
 

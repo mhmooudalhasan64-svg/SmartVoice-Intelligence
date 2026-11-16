@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,7 +56,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 import com.aurevon.velora.recordings.RecordingController
 import com.aurevon.velora.recordings.StopRecordingResult
-import com.aurevon.velora.transcription.ArabicModelInstaller
+import com.aurevon.velora.transcription.ArabicModelController
+import com.aurevon.velora.transcription.ArabicModelInstallState
 import com.aurevon.velora.transcription.TranscriptionController
 import com.aurevon.velora.ui.components.FeatureRow
 import com.aurevon.velora.ui.components.RecordingItem
@@ -90,15 +92,14 @@ private fun HomeScreen() {
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
     var playingName by remember { mutableStateOf<String?>(null) }
-    var modelInstalled by remember { mutableStateOf(false) }
-    var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }
+    var modelStatus by remember { mutableStateOf<String?>(null) }
     var modelProgress by remember { mutableStateOf<Int?>(null) }
     var transcriptText by remember { mutableStateOf<String?>(null) }
     var isTranscribing by remember { mutableStateOf(false) }
-    var isInstallingModel by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val recordingController = remember { RecordingController(context) }
-    val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
+    val modelController = remember { ArabicModelController(context.filesDir) }
+    val modelState by modelController.state.collectAsState()
 
     fun refreshRecordings() {
         recordings = recordingController.listRecordings()
@@ -146,8 +147,7 @@ private fun HomeScreen() {
 
     DisposableEffect(Unit) {
         refreshRecordings()
-        modelInstalled = modelInstaller.isInstalled()
-        if (modelInstalled) modelStatus = "نموذج العربية جاهز على الجهاز"
+        modelController.refresh()
         onDispose {
             recordingController.release()
         }
@@ -267,34 +267,34 @@ private fun HomeScreen() {
             ) {
                 Text("التفريغ الصوتي العربي", color = Color.White,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(modelStatus, color = Muted, style = MaterialTheme.typography.bodySmall)
-                if (!modelInstalled) {
-                    Text("يتطلب النموذج تنزيلًا اختياريًا بحجم يقارب 318 MB. بعد تثبيته تتم معالجة الصوت محليًا.",
-                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                val installState = modelState
+                val defaultModelStatus = when (installState) {
+                    ArabicModelInstallState.NotInstalled -> "نموذج العربية غير مثبت"
+                    ArabicModelInstallState.Ready -> "نموذج العربية جاهز على الجهاز"
+                    is ArabicModelInstallState.Downloading -> "جارٍ تنزيل النموذج العربي..."
+                    is ArabicModelInstallState.Failed -> "فشل التثبيت: ${installState.message}"
+                }
+                Text(modelStatus ?: defaultModelStatus, color = Muted,
+                    style = MaterialTheme.typography.bodySmall)
+                if (installState !is ArabicModelInstallState.Ready) {
+                    if (installState is ArabicModelInstallState.NotInstalled ||
+                        installState is ArabicModelInstallState.Failed
+                    ) {
+                        Text("يتطلب النموذج تنزيلًا اختياريًا بحجم يقارب 318 MB. بعد تثبيته تتم معالجة الصوت محليًا.",
+                            color = Muted, style = MaterialTheme.typography.bodySmall)
+                    }
                     Button(
                         onClick = {
-                            modelStatus = "جارٍ تنزيل النموذج العربي..."
-                            isInstallingModel = true
-                            scope.launch {
-                                try {
-                                    modelInstaller.install { progress ->
-                                        scope.launch { modelProgress = progress }
-                                    }
-                                    modelInstalled = true
-                                    modelStatus = "اكتمل تثبيت النموذج العربي"
-                                } catch (error: Exception) {
-                                    modelStatus = "فشل التثبيت: ${error.message ?: "خطأ غير معروف"}"
-                                } finally {
-                                    modelProgress = null
-                                    isInstallingModel = false
-                                }
-                            }
+                            modelStatus = null
+                            scope.launch { modelController.install() }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isInstallingModel,
+                        enabled = installState !is ArabicModelInstallState.Downloading,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(modelProgress?.let { "تنزيل النموذج • $it%" } ?: "تنزيل نموذج العربية")
+                        val progress = (installState as? ArabicModelInstallState.Downloading)?.progressPercent
+                        Text(progress?.let { "تنزيل النموذج • $it%" } ?:
+                            if (installState is ArabicModelInstallState.Downloading) "جارٍ التنزيل..." else "تنزيل نموذج العربية")
                     }
                 } else {
                     Button(
@@ -309,7 +309,7 @@ private fun HomeScreen() {
                                 scope.launch {
                                     try {
                                         val transcriptionController = TranscriptionController(
-                                            modelDirectory = modelInstaller.installedDirectory,
+                                            modelDirectory = modelController.installedDirectory,
                                             cacheDirectory = context.cacheDir
                                         )
                                         val result = transcriptionController.transcribe(

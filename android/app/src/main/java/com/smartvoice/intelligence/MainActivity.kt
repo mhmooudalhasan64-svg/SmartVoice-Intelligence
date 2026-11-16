@@ -114,7 +114,11 @@ private fun HomeScreen() {
     val voiceMessageParser = remember { VoiceMessageDraftParser() }
     val modelState by modelController.state.collectAsState()
 
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(\n        ActivityResultContracts.RequestPermission()\n    ) { }\n\n    LaunchedEffect(Unit) {\n        StudyReminderWorker.createNotificationChannel(context)\n        if (Build.VERSION.SDK_INT >= 33 &&\n            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED\n        ) {\n            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)\n        }\n    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {\n        StudyReminderWorker.createNotificationChannel(context)\n        if (Build.VERSION.SDK_INT >= 33 &&\n            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED\n        ) {\n            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)\n        }\n    }
 
     fun refreshRecordings() {
         recordings = recordingController.listRecordings()
@@ -440,7 +444,9 @@ private fun HomeScreen() {
                                         if (studyEventRepository.saveConfirmed(draft)) {
                                             pendingStudyDraft = null
                                             refreshStudyEvents()
-                                            val reminderScheduled = StudyReminderScheduler.scheduleConfirmedEvent(\n                                                context, draft.copy(requiresConfirmation = false)\n                                            )
+                                            val reminderScheduled = StudyReminderScheduler.scheduleConfirmedEvent(
+                                                context, draft.copy(requiresConfirmation = false)
+                                            )
                                             modelStatus = if (reminderScheduled) {
                                                 "تمت إضافة الحدث وجدولة إشعار الساعة 8 صباحاً في يومه"
                                             } else {

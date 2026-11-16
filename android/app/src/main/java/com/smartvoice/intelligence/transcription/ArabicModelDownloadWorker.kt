@@ -33,6 +33,7 @@ class ArabicModelDownloadWorker(
                 if (percent != null && percent != lastProgress) {
                     lastProgress = percent
                     setProgressAsync(Data.Builder().putInt(KEY_PROGRESS, percent).build())
+                    setForegroundAsync(createForegroundInfo(percent))
                 }
             }
             showFinishedNotification()
@@ -56,13 +57,15 @@ class ArabicModelDownloadWorker(
         }
     }
 
-    private fun createForegroundInfo(): ForegroundInfo {
+    private fun createForegroundInfo(progressPercent: Int? = null): ForegroundInfo {
         createNotificationChannel()
+        val progressText = progressPercent?.let { "تم تنزيل $it% • سيستمر في الخلفية" }
+            ?: "سيستمر التنزيل في الخلفية حتى بعد الخروج من التطبيق"
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(com.aurevon.velora.R.mipmap.ic_launcher)
             .setContentTitle("VELORA • تنزيل نموذج العربية")
-            .setContentText("سيستمر التنزيل في الخلفية حتى بعد الخروج من التطبيق")
-            .setProgress(0, 0, true)
+            .setContentText(progressText)
+            .setProgress(100, progressPercent ?: 0, progressPercent == null)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ internal fun RecordingRow(
     item: RecordingItem,
     isPlaying: Boolean,
     onPlay: () -> Unit,
+    onAnalyze: () -> Unit,
     onDelete: () -> Unit
 ) {
     val date = remember(item.file.lastModified()) {
@@ -57,6 +59,9 @@ internal fun RecordingRow(
                 val durationLabel = item.durationSeconds?.let { "${it / 60}:%02d".format(it % 60) } ?: "المدة غير متاحة"
                 Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
                     color = Muted, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = onAnalyze) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = "تحليل التسجيل مع ORIN", tint = Accent)
             }
             IconButton(onClick = onPlay) {
                 Icon(Icons.Default.PlayArrow, contentDescription = if (isPlaying) "يعمل" else "تشغيل",

@@ -19,6 +19,8 @@ android {
 
     buildFeatures {
         compose = true
+        // AGP does not generate BuildConfig unless this is explicitly enabled.
+        buildConfig = true
     }
 
     compileOptions {

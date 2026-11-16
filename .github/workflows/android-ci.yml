@@ -8,7 +8,7 @@ on:
       - "android/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, "feat/velora-background-notifications"]
     paths:
       - "android/**"
       - ".github/workflows/android-ci.yml"

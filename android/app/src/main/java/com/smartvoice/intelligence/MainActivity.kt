@@ -317,7 +317,7 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isRecording) Color(0xFFB45353) else MaterialTheme.colorScheme.primary,
-                        contentColor = Color.White
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, null)
@@ -328,7 +328,7 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
                     )
                 }
                 Text(status, color = if (status.startsWith("تعذر") || status.startsWith("لم تمنح"))
-                    Color(0xFFFFA6A6) else Muted, style = MaterialTheme.typography.bodySmall)
+                    Color(0xFFFFA6A6) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
 
@@ -338,7 +338,7 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
 
         if (recordings.isEmpty()) {
             Text("لا توجد تسجيلات بعد. ابدأ تسجيلاً جديداً وسيظهر هنا.",
-                color = Muted, style = MaterialTheme.typography.bodyMedium)
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         } else {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -382,18 +382,18 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("التفريغ الصوتي العربي", color = Color.White,
+                Text("التفريغ الصوتي العربي", color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(modelStatus, color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text(modelStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 if (!modelInstalled) {
                     Text("يتطلب النموذج تنزيلًا اختياريًا بحجم يقارب 318 MB. بعد تثبيته تتم معالجة الصوت محليًا.",
-                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     Button(
                         onClick = {
                             modelStatus = "جارٍ تنزيل النموذج العربي..."
@@ -468,14 +468,14 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
                     }
                 }
                 transcriptText?.let { text ->
-                    Text("النص المستخرج", color = Accent, fontWeight = FontWeight.SemiBold)
-                    Text(text, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                    Text("النص المستخرج", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Text(text, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
 
         Text("مساحات التنظيم", style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold, color = Color.White)
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             FeatureRow(Icons.Default.TaskAlt, "المهام", "استخراج الأعمال المطلوب تنفيذها")
             FeatureRow(Icons.Default.CalendarMonth, "المواعيد", "تمييز التواريخ الصريحة عن المقترحات")
@@ -498,7 +498,7 @@ private fun RecordingRow(
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Panel),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(14.dp)
     ) {
         Row(
@@ -506,14 +506,14 @@ private fun RecordingRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(date, color = Color.White, fontWeight = FontWeight.Medium)
+                Text(date, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                 val durationLabel = item.durationSeconds?.let { "${it / 60}:%02d".format(it % 60) } ?: "المدة غير متاحة"
                 Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
-                    color = Muted, style = MaterialTheme.typography.bodySmall)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             IconButton(onClick = onPlay) {
                 Icon(Icons.Default.PlayArrow, contentDescription = if (isPlaying) "يعمل" else "تشغيل",
-                    tint = Accent)
+                    tint = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "حذف التسجيل",
@@ -529,7 +529,7 @@ private fun FeatureRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -537,12 +537,12 @@ private fun FeatureRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
             horizontalArrangement = Arrangement.spacedBy(13.dp)
         ) {
             Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp),
-                color = Accent.copy(alpha = 0.12f)) {
-                Icon(icon, null, tint = Accent, modifier = Modifier.padding(9.dp))
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(9.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text(description, color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
     }

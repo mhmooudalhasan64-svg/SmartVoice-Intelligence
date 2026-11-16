@@ -440,7 +440,7 @@ private fun HomeScreen() {
                                         if (studyEventRepository.saveConfirmed(draft)) {
                                             pendingStudyDraft = null
                                             refreshStudyEvents()
-                                            val reminderScheduled = StudyReminderScheduler.scheduleConfirmedEvent(context, draft)
+                                            val reminderScheduled = StudyReminderScheduler.scheduleConfirmedEvent(\n                                                context, draft.copy(requiresConfirmation = false)\n                                            )
                                             modelStatus = if (reminderScheduled) {
                                                 "تمت إضافة الحدث وجدولة إشعار الساعة 8 صباحاً في يومه"
                                             } else {

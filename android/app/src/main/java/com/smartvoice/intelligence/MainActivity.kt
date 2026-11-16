@@ -2,9 +2,6 @@ package com.aurevon.velora
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.media.MediaPlayer
-import android.media.MediaRecorder
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -58,6 +55,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.aurevon.velora.recordings.RecordingController
+import com.aurevon.velora.recordings.StopRecordingResult
 import com.aurevon.velora.transcription.ArabicModelInstaller
 import com.aurevon.velora.transcription.VoskTranscriptionEngine
 import com.aurevon.velora.ui.components.FeatureRow
@@ -87,14 +86,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun HomeScreen() {
     val context = LocalContext.current
-    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
-    var activeFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var recordingStartedAt by remember { mutableStateOf(0L) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
-    var player by remember { mutableStateOf<MediaPlayer?>(null) }
     var playingName by remember { mutableStateOf<String?>(null) }
     var modelInstalled by remember { mutableStateOf(false) }
     var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }
@@ -103,82 +99,34 @@ private fun HomeScreen() {
     var isTranscribing by remember { mutableStateOf(false) }
     var isInstallingModel by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val recordingController = remember { RecordingController(context) }
     val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
 
     fun refreshRecordings() {
-        val dir = File(context.filesDir, "recordings")
-        recordings = (dir.listFiles()?.filter { it.isFile && it.extension == "m4a" }
-            ?.sortedByDescending { it.lastModified() } ?: emptyList())
-            .map { file ->
-                val durationFile = File(file.parentFile, "${file.nameWithoutExtension}.duration")
-                val duration = durationFile.takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
-                RecordingItem(file, duration)
-            }
+        recordings = recordingController.listRecordings()
     }
 
     fun stopPlayback() {
-        try { player?.stop() } catch (_: Exception) { }
-        try { player?.release() } catch (_: Exception) { }
-        player = null
+        recordingController.stopPlayback()
         playingName = null
     }
 
     fun stopRecording() {
-        val current = recorder
-        try {
-            current?.stop()
-            activeFile?.let { file ->
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").writeText(elapsedSeconds.toString())
-            }
-            status = "تم حفظ التسجيل"
-        } catch (_: RuntimeException) {
-            activeFile?.let { file ->
-                file.delete()
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").delete()
-            }
-            status = "التسجيل قصير جداً ولم يتم حفظه"
-        } finally {
-            try { current?.reset() } catch (_: Exception) { }
-            try { current?.release() } catch (_: Exception) { }
-            recorder = null
-            activeFile = null
-            isRecording = false
-            refreshRecordings()
+        status = when (recordingController.stopRecording(elapsedSeconds)) {
+            StopRecordingResult.Saved -> "تم حفظ التسجيل"
+            StopRecordingResult.TooShort -> "التسجيل قصير جداً ولم يتم حفظه"
         }
+        isRecording = false
+        refreshRecordings()
     }
 
     fun startRecording() {
-        var newRecorder: MediaRecorder? = null
-        var outputFile: File? = null
-        try {
-            val dir = File(context.filesDir, "recordings").apply { mkdirs() }
-            val file = File(dir, "SV_${System.currentTimeMillis()}.m4a")
-            outputFile = file
-            newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(context)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }
-            newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            newRecorder.setAudioEncodingBitRate(128000)
-            newRecorder.setAudioSamplingRate(44100)
-            newRecorder.setOutputFile(file.absolutePath)
-            newRecorder.prepare()
-            newRecorder.start()
-            recorder = newRecorder
-            activeFile = file
+        if (recordingController.startRecording()) {
             recordingStartedAt = System.currentTimeMillis()
             elapsedSeconds = 0
             isRecording = true
             status = "جارٍ التسجيل..."
-        } catch (_: Exception) {
-            try { newRecorder?.release() } catch (_: Exception) { }
-            outputFile?.delete()
-            recorder = null
-            activeFile = null
+        } else {
             isRecording = false
             status = "تعذر بدء التسجيل: تحقق من الميكروفون"
         }
@@ -203,9 +151,7 @@ private fun HomeScreen() {
         modelInstalled = modelInstaller.isInstalled()
         if (modelInstalled) modelStatus = "نموذج العربية جاهز على الجهاز"
         onDispose {
-            try { recorder?.stop() } catch (_: Exception) { }
-            try { recorder?.release() } catch (_: Exception) { }
-            try { player?.release() } catch (_: Exception) { }
+            recordingController.release()
         }
     }
 
@@ -291,22 +237,13 @@ private fun HomeScreen() {
                         item = item,
                         isPlaying = playingName == item.file.name,
                         onPlay = {
-                            stopPlayback()
-                            try {
-                                val mp = MediaPlayer().apply {
-                                    setDataSource(item.file.absolutePath)
-                                    setOnCompletionListener {
-                                        it.release()
-                                        player = null
-                                        playingName = null
-                                    }
-                                    prepare()
-                                    start()
-                                }
-                                player = mp
+                            val started = recordingController.play(item.file) {
+                                playingName = null
+                            }
+                            if (started) {
                                 playingName = item.file.name
-                            } catch (_: Exception) {
-                                stopPlayback()
+                            } else {
+                                playingName = null
                                 status = "تعذر تشغيل هذا التسجيل"
                             }
                         },

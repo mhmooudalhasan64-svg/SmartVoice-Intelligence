@@ -13,12 +13,34 @@ android {
         applicationId = "com.aurevon.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.0"
+        // Release workflow supplies these values; local builds retain safe defaults.
+        versionCode = providers.gradleProperty("VERSION_CODE").orElse("5").get().toInt()
+        versionName = providers.gradleProperty("VERSION_NAME").orElse("0.1.0").get()
     }
 
     buildFeatures {
         compose = true
+        // AGP does not generate BuildConfig unless this is explicitly enabled.
+        buildConfig = true
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = providers.gradleProperty("ANDROID_KEYSTORE_PATH").orNull
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = providers.gradleProperty("ANDROID_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.gradleProperty("ANDROID_KEY_ALIAS").orNull
+                keyPassword = providers.gradleProperty("ANDROID_KEY_PASSWORD").orNull
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {
@@ -48,6 +70,7 @@ dependencies {
     // Firebase Authentication + Google Identity Credential Manager.
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-config")
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")

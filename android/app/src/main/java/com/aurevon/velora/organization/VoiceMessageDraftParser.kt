@@ -65,7 +65,11 @@ class VoiceMessageDraftParser(
                 today.plusDays(2) to "بعد بكرة"
             containsPhrase(normalized, "بكرة") || containsPhrase(normalized, "بكرا") ||
                 containsPhrase(normalized, "غدا") ->
-                today.plusDays(1) to "غداً"
+                today.plusDays(1) to when {
+                    containsPhrase(normalized, "بكرة") -> "بكرة"
+                    containsPhrase(normalized, "بكرا") -> "بكرا"
+                    else -> "غداً"
+                }
             containsPhrase(normalized, "اليوم") ->
                 today to "اليوم"
             else -> null to null

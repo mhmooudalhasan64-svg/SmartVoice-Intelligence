@@ -65,9 +65,15 @@ jobs:
           test -s "$RUNNER_TEMP/velora-signing/release.jks"
           if ! keytool -list \
             -keystore "$RUNNER_TEMP/velora-signing/release.jks" \
+            -storepass:env KEYSTORE_PASSWORD >/dev/null 2>&1; then
+            echo "::error::Keystore password validation failed. Check ANDROID_KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          if ! keytool -list \
+            -keystore "$RUNNER_TEMP/velora-signing/release.jks" \
             -storepass:env KEYSTORE_PASSWORD \
             -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-            echo "::error::Keystore password or key alias validation failed. Check ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS."
+            echo "::error::Key alias validation failed. Check ANDROID_KEY_ALIAS."
             exit 1
           fi
           if ! keytool -certreq \

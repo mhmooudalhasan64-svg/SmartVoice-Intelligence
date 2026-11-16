@@ -56,9 +56,7 @@ class ArabicModelInstaller(private val filesDirectory: File) {
                     check(archive.isFile && archive.length() > 0L) {
                         "Downloaded model archive is empty"
                     }
-                    check(completeMarker.writeText("complete").let { true }) {
-                        "Could not mark completed model download"
-                    }
+                    completeMarker.writeText("complete")
                     archiveReady = true
                 }
 
@@ -67,7 +65,7 @@ class ArabicModelInstaller(private val filesDirectory: File) {
                 ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
                     while (true) {
                         val entry = zip.nextEntry ?: break
-                        val safeName = entry.name.replace('\\\\', '/')
+                        val safeName = entry.name.replace(92.toChar(), '/')
                         check(!safeName.startsWith("/") && !safeName.split('/').any { it == ".." }) {
                             "Unsafe model archive entry"
                         }
@@ -147,7 +145,7 @@ class ArabicModelInstaller(private val filesDirectory: File) {
         try {
             connection.connect()
             val response = connection.responseCode
-            if (response == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE) {
+            if (response == 416) {
                 archive.delete()
                 throw IOException("The server rejected the resume range; restarting download")
             }

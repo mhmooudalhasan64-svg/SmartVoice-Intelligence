@@ -10,7 +10,7 @@ import java.io.File
  * Coordinates Android audio resources and delegates recording-file operations
  * to RecordingRepository. UI state and permission handling remain in Compose.
  */
-internal class RecordingController(context: Context) {
+internal class RecordingController(private val context: Context) {
     private var recorder: MediaRecorder? = null
     private var activeFile: File? = null
     private var player: MediaPlayer? = null

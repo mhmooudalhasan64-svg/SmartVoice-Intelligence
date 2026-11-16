@@ -5,13 +5,18 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipInputStream
 
 /**
- * Installs the official Vosk Arabic MGB-2 model only when explicitly invoked by the user.
- * The archive is downloaded over HTTPS and extracted with ZIP-slip protection.
+ * Installs the official Vosk Arabic MGB-2 model.
+ *
+ * The .part archive is deliberately retained after network failures. HTTP Range
+ * requests resume from its current length, so WorkManager retries do not restart
+ * a large download from zero. A completion marker protects a fully downloaded
+ * archive if the process is killed while extraction is running.
  */
 class ArabicModelInstaller(private val filesDirectory: File) {
     companion object {
@@ -37,49 +42,24 @@ class ArabicModelInstaller(private val filesDirectory: File) {
             val root = File(filesDirectory, "speech-models")
             check(root.exists() || root.mkdirs()) { "Could not create model directory" }
             val archive = File(root, "$MODEL_ID.zip.part")
+            val completeMarker = File(root, "$MODEL_ID.zip.complete")
             val staging = File(root, "$MODEL_ID.installing")
             val destination = installedDirectory
-            archive.delete()
+
             staging.deleteRecursively()
             check(staging.mkdirs()) { "Could not create model staging directory" }
 
+            var archiveReady = completeMarker.isFile && archive.isFile
             try {
-                val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 20_000
-                    readTimeout = 45_000
-                    requestMethod = "GET"
-                    instanceFollowRedirects = true
-                }
-                try {
-                    connection.connect()
-                    check(connection.responseCode in 200..299) {
-                        "Model download failed: HTTP ${connection.responseCode}"
+                if (!archiveReady) {
+                    downloadArchive(archive, onProgress)
+                    check(archive.isFile && archive.length() > 0L) {
+                        "Downloaded model archive is empty"
                     }
-                    val expectedLength = connection.contentLengthLong
-                    check(expectedLength <= 0 || expectedLength <= MAX_ARCHIVE_BYTES) {
-                        "Unexpected model archive size"
+                    check(completeMarker.writeText("complete").let { true }) {
+                        "Could not mark completed model download"
                     }
-                    BufferedInputStream(connection.inputStream).use { input ->
-                        FileOutputStream(archive).use { output ->
-                            val buffer = ByteArray(64 * 1024)
-                            var downloaded = 0L
-                            while (true) {
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                downloaded += count
-                                check(downloaded <= MAX_ARCHIVE_BYTES) {
-                                    "Model archive exceeds size limit"
-                                }
-                                output.write(buffer, 0, count)
-                                val percent = if (expectedLength > 0) {
-                                    (downloaded * 100 / expectedLength).toInt().coerceIn(0, 100)
-                                } else null
-                                onProgress(percent)
-                            }
-                        }
-                    }
-                } finally {
-                    connection.disconnect()
+                    archiveReady = true
                 }
 
                 var extractedBytes = 0L
@@ -87,7 +67,7 @@ class ArabicModelInstaller(private val filesDirectory: File) {
                 ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
                     while (true) {
                         val entry = zip.nextEntry ?: break
-                        val safeName = entry.name.replace('\\', '/')
+                        val safeName = entry.name.replace('\\\\', '/')
                         check(!safeName.startsWith("/") && !safeName.split('/').any { it == ".." }) {
                             "Unsafe model archive entry"
                         }
@@ -127,18 +107,100 @@ class ArabicModelInstaller(private val filesDirectory: File) {
 
                 destination.deleteRecursively()
                 check(modelRoot.renameTo(destination)) { "Could not finalize model installation" }
+                archive.delete()
+                completeMarker.delete()
                 onProgress(100)
                 destination
+            } catch (error: Exception) {
+                // Preserve only an incomplete network download. A completed but
+                // invalid ZIP must be discarded so a retry can fetch it again.
+                if (archiveReady) {
+                    archive.delete()
+                    completeMarker.delete()
+                }
+                throw error
             } finally {
-                archive.delete()
                 staging.deleteRecursively()
             }
         }
+
+    private fun downloadArchive(
+        archive: File,
+        onProgress: (downloadPercent: Int?) -> Unit
+    ) {
+        var existingBytes = archive.length()
+        if (existingBytes > MAX_ARCHIVE_BYTES) {
+            archive.delete()
+            existingBytes = 0L
+        }
+
+        val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 20_000
+            readTimeout = 60_000
+            requestMethod = "GET"
+            instanceFollowRedirects = true
+            if (existingBytes > 0L) {
+                setRequestProperty("Range", "bytes=$existingBytes-")
+            }
+        }
+
+        try {
+            connection.connect()
+            val response = connection.responseCode
+            if (response == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE) {
+                archive.delete()
+                throw IOException("The server rejected the resume range; restarting download")
+            }
+
+            val append = existingBytes > 0L && response == HttpURLConnection.HTTP_PARTIAL
+            if (response != HttpURLConnection.HTTP_OK && !append) {
+                throw IOException("Model download failed: HTTP $response")
+            }
+
+            if (!append) existingBytes = 0L
+            val rangeTotal = connection.getHeaderField("Content-Range")
+                ?.substringAfterLast('/')
+                ?.toLongOrNull()
+            val contentLength = connection.contentLengthLong
+            val expectedLength = if (append) {
+                rangeTotal ?: if (contentLength > 0L) existingBytes + contentLength else -1L
+            } else {
+                contentLength
+            }
+            check(expectedLength <= 0L || expectedLength <= MAX_ARCHIVE_BYTES) {
+                "Unexpected model archive size"
+            }
+
+            BufferedInputStream(connection.inputStream).use { input ->
+                FileOutputStream(archive, append).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var downloaded = existingBytes
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        downloaded += count
+                        check(downloaded <= MAX_ARCHIVE_BYTES) {
+                            "Model archive exceeds size limit"
+                        }
+                        output.write(buffer, 0, count)
+                        val percent = if (expectedLength > 0L) {
+                            (downloaded * 100L / expectedLength).toInt().coerceIn(0, 100)
+                        } else null
+                        onProgress(percent)
+                    }
+                    output.fd.sync()
+                }
+            }
+            onProgress(100)
+        } finally {
+            connection.disconnect()
+        }
+    }
 
     private fun findModelRoot(staging: File): File {
         if (File(staging, "am/final.mdl").isFile) return staging
         val children = staging.listFiles()?.filter { it.isDirectory } ?: emptyList()
         return children.firstOrNull { File(it, "am/final.mdl").isFile }
-            ?: throw IllegalStateException("Arabic model files were not found in archive")
+            ?: throw IllegalStateException("Model files were not found in archive")
     }
 }

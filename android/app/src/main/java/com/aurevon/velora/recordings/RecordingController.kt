@@ -126,9 +126,8 @@ internal class RecordingController(private val context: Context) {
 
     private fun stopRecordingForegroundService() {
         try {
-            context.startService(
+            context.stopService(
                 Intent(context, RecordingForegroundService::class.java)
-                    .setAction(RecordingForegroundService.ACTION_STOP)
             )
         } catch (_: Exception) { }
     }

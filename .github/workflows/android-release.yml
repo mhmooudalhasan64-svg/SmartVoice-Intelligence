@@ -1,6 +1,12 @@
 name: VELORA Signed Android Release
 
 on:
+  push:
+    branches:
+      - feat/velora-gold-black-redesign
+    paths:
+      - "android/**"
+      - ".github/workflows/android-release.yml"
   workflow_dispatch:
     inputs:
       version_name:
@@ -42,8 +48,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          VERSION_NAME: ${{ inputs.version_name }}
-          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name || '0.1.0' }}
+          VERSION_CODE: ${{ inputs.version_code || '7' }}
         run: |
           set -euo pipefail
           for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
@@ -67,8 +73,8 @@ jobs:
       - name: Set Android version for this build
         working-directory: android/app
         env:
-          VERSION_NAME: ${{ inputs.version_name }}
-          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name || '0.1.0' }}
+          VERSION_CODE: ${{ inputs.version_code || '7' }}
         run: |
           python3 - <<'PY'
           import os
@@ -108,7 +114,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_NAME: ${{ inputs.version_name || '0.1.0' }}
         run: |
           set -euo pipefail
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
@@ -132,9 +138,9 @@ jobs:
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: VELORA_NEXUS_${{ inputs.version_name }}_SIGNED
+          name: VELORA_NEXUS_${{ inputs.version_name || '0.1.0' }}_SIGNED
           path: |
-            android/release/VELORA_NEXUS_${{ inputs.version_name }}.apk
-            android/release/VELORA_NEXUS_${{ inputs.version_name }}.sha256
+            android/release/VELORA_NEXUS_${{ inputs.version_name || '0.1.0' }}.apk
+            android/release/VELORA_NEXUS_${{ inputs.version_name || '0.1.0' }}.sha256
           if-no-files-found: error
           retention-days: 90

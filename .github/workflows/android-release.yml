@@ -77,10 +77,68 @@ jobs:
 
           path = Path("build.gradle.kts")
           source = path.read_text()
-          source, code_count = re.subn(r"(?m)^\\s*versionCode = 1\\s*$",
-                                       f"        versionCode = {os.environ['VERSION_CODE']}", source)
-          source, name_count = re.subn(r'(?m)^\\s*versionName = "0\\.0\\.1"\\s*$',
-                                       f'        versionName = "{os.environ["VERSION_NAME"]}"', source)
+          source, code_count = re.subn(
+              r"(?m)^([ \\t]*)versionCode[ \\t]*=[ \\t]*[0-9]+[ \\t]*$",
+              lambda match: f"{match.group(1)}versionCode = {os.environ['VERSION_CODE']}",
+              source,
+          )
+          source, name_count = re.subn(
+              r'(?m)^([ \\t]*)versionName[ \\t]*=[ \\t]*"[^"]+"[ \\t]*
+          if code_count != 1 or name_count != 1:
+              raise SystemExit("Expected versionCode/versionName declarations were not found exactly once; refusing to build.")
+          path.write_text(source)
+          PY
+
+      - name: Run unit tests
+        working-directory: android
+        run: gradle --no-daemon testDebugUnitTest
+
+      - name: Build release APK
+        working-directory: android
+        run: gradle --no-daemon assembleRelease
+
+      - name: Align and sign APK
+        working-directory: android
+        shell: bash
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/velora-signing/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -x "$BUILD_TOOLS/zipalign"
+          test -x "$BUILD_TOOLS/apksigner"
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$UNSIGNED"
+          mkdir -p release
+          ALIGNED="$RUNNER_TEMP/velora-aligned.apk"
+          SIGNED="release/VELORA_NEXUS_${VERSION_NAME}.apk"
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$KEYSTORE_PATH" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "$SIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$SIGNED"
+          sha256sum "$SIGNED" > "release/VELORA_NEXUS_${VERSION_NAME}.sha256"
+
+      - name: Upload signed release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VELORA_NEXUS_${{ inputs.version_name }}_SIGNED
+          path: |
+            android/release/VELORA_NEXUS_${{ inputs.version_name }}.apk
+            android/release/VELORA_NEXUS_${{ inputs.version_name }}.sha256
+          if-no-files-found: error
+          retention-days: 90
+,
+              lambda match: f'{match.group(1)}versionName = "{os.environ["VERSION_NAME"]}"',
+              source,
+          )
           if code_count != 1 or name_count != 1:
               raise SystemExit("Expected versionCode/versionName declarations were not found exactly once; refusing to build.")
           path.write_text(source)

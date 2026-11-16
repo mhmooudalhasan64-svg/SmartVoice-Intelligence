@@ -40,10 +40,20 @@ jobs:
         run: |
           for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error::Missing GitHub Actions secret: ANDROID_${name#KEYSTORE_}"
+              case "$name" in
+                KEYSTORE_BASE64) secret_name="ANDROID_KEYSTORE_BASE64" ;;
+                KEYSTORE_PASSWORD) secret_name="ANDROID_KEYSTORE_PASSWORD" ;;
+                KEY_ALIAS) secret_name="ANDROID_KEY_ALIAS" ;;
+                KEY_PASSWORD) secret_name="ANDROID_KEY_PASSWORD" ;;
+              esac
+              echo "::error::Missing GitHub Actions secret: $secret_name"
               exit 1
             fi
           done
+          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]] || [ "$VERSION_CODE" -lt 1 ]; then
+            echo "::error::VERSION_CODE must be a positive integer"
+            exit 1
+          fi
           mkdir -p "$RUNNER_TEMP/velora-signing"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/velora-signing/release.jks"
           test -s "$RUNNER_TEMP/velora-signing/release.jks"

@@ -48,6 +48,7 @@ dependencies {
     // Firebase Authentication + Google Identity Credential Manager.
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-config")
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")

@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.aurevon.velora.config.RemoteConfigRepository
 import com.aurevon.velora.recordings.RecordingController
 import com.aurevon.velora.recordings.RecordingItem
 import com.aurevon.velora.recordings.StopRecordingResult
@@ -110,6 +111,8 @@ private fun HomeScreen() {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val recordingController = remember { RecordingController(context) }
     val modelController = remember { ArabicModelController(context) }
+    val remoteConfigRepository = remember { RemoteConfigRepository(context) }
+    val remoteSettings by remoteConfigRepository.settings.collectAsState()
     val studyEventRepository = remember { StudyEventRepository(java.io.File(context.filesDir, "study/confirmed-events.db")) }
     val voiceMessageParser = remember { VoiceMessageDraftParser() }
     val modelState by modelController.state.collectAsState()
@@ -119,6 +122,7 @@ private fun HomeScreen() {
     ) { }
 
     LaunchedEffect(Unit) {
+        remoteConfigRepository.refresh()
         StudyReminderWorker.createNotificationChannel(context)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -137,6 +141,10 @@ private fun HomeScreen() {
     }
 
     fun analyzeRecording(item: RecordingItem) {
+        if (!remoteSettings.voiceMessageAnalysisEnabled) {
+            modelStatus = "ميزة تحليل الرسائل الصوتية متوقفة مؤقتاً"
+            return
+        }
         if (modelState !is ArabicModelInstallState.Ready) {
             modelStatus = "ثبّت نموذج العربية أولاً لتحليل التسجيل محلياً"
             return
@@ -388,12 +396,12 @@ private fun HomeScreen() {
                             scope.launch { modelController.install() }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = installState !is ArabicModelInstallState.Downloading,
+                        enabled = installState !is ArabicModelInstallState.Downloading && remoteSettings.backgroundModelDownloadsEnabled,
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         val progress = (installState as? ArabicModelInstallState.Downloading)?.progressPercent
                         Text(progress?.let { "تنزيل النموذج • $it%" } ?:
-                            if (installState is ArabicModelInstallState.Downloading) "جارٍ التنزيل..." else "تنزيل نموذج العربية")
+                            if (installState is ArabicModelInstallState.Downloading) "جارٍ التنزيل..." else if (!remoteSettings.backgroundModelDownloadsEnabled) "التنزيل متوقف مؤقتاً" else "تنزيل نموذج العربية")
                     }
                 } else {
                     Button(

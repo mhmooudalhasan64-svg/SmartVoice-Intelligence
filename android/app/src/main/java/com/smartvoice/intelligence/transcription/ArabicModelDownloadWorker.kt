@@ -28,8 +28,10 @@ class ArabicModelDownloadWorker(
 
         setForeground(createForegroundInfo())
         return try {
+            var lastProgress = -1
             installer.install { percent ->
-                if (percent != null) {
+                if (percent != null && percent != lastProgress) {
+                    lastProgress = percent
                     setProgressAsync(Data.Builder().putInt(KEY_PROGRESS, percent).build())
                 }
             }

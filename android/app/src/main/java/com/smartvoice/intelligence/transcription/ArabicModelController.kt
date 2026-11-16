@@ -3,6 +3,8 @@ package com.aurevon.velora.transcription
 import android.content.Context
 import androidx.lifecycle.Observer
 import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.NetworkType
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -90,6 +92,11 @@ class ArabicModelController(context: Context) {
 
         _state.value = ArabicModelInstallState.Downloading(null)
         val request = OneTimeWorkRequestBuilder<ArabicModelDownloadWorker>()
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
             .setBackoffCriteria(
                 BackoffPolicy.EXPONENTIAL,
                 30L,

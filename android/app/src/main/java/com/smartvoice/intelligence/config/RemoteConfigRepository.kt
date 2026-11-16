@@ -1,6 +1,5 @@
 package com.aurevon.velora.config
 
-import android.content.Context
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import kotlinx.coroutines.Dispatchers
@@ -26,16 +25,12 @@ data class VeloraRemoteSettings(
     val minimumSupportedVersionCode: Long = 1L
 )
 
-class RemoteConfigRepository(context: Context) {
+class RemoteConfigRepository {
     private val remoteConfig = FirebaseRemoteConfig.getInstance()
 
     private val _settings = MutableStateFlow(VeloraRemoteSettings())
     val settings: StateFlow<VeloraRemoteSettings> = _settings.asStateFlow()
 
-    init {
-        // Keep an application reference available for future configuration extensions.
-        context.applicationContext
-    }
 
     suspend fun refresh(): Boolean = withContext(Dispatchers.IO) {
         val defaults = mapOf(

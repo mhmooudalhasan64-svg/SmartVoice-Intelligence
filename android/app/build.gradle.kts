@@ -9,11 +9,12 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.smartvoice.intelligence"
+        // Separate package so VELORA can be installed alongside the legacy app.
+        applicationId = "com.aurevon.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 1
+        versionName = "0.0.1"
     }
 
     buildFeatures {

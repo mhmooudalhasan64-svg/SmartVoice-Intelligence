@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.smartvoice.intelligence.MainActivity
+import com.aurevon.velora.MainActivity
 import com.aurevon.velora.R
 import java.time.LocalTime
 import java.time.ZoneId

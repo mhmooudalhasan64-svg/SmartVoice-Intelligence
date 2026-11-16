@@ -111,7 +111,7 @@ private fun HomeScreen() {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val recordingController = remember { RecordingController(context) }
     val modelController = remember { ArabicModelController(context) }
-    val remoteConfigRepository = remember { RemoteConfigRepository(context) }
+    val remoteConfigRepository = remember { RemoteConfigRepository() }
     val remoteSettings by remoteConfigRepository.settings.collectAsState()
     val studyEventRepository = remember { StudyEventRepository(java.io.File(context.filesDir, "study/confirmed-events.db")) }
     val voiceMessageParser = remember { VoiceMessageDraftParser() }

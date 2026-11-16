@@ -3,6 +3,7 @@ package com.aurevon.velora
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -61,6 +62,8 @@ import com.aurevon.velora.recordings.StopRecordingResult
 import com.aurevon.velora.organization.StudyEventDraft
 import com.aurevon.velora.organization.StudyEventRepository
 import com.aurevon.velora.organization.StudyEventType
+import com.aurevon.velora.organization.StudyReminderScheduler
+import com.aurevon.velora.organization.StudyReminderWorker
 import com.aurevon.velora.organization.VoiceMessageDraftParser
 import com.aurevon.velora.transcription.ArabicModelController
 import com.aurevon.velora.transcription.ArabicModelInstallState
@@ -108,7 +111,7 @@ private fun HomeScreen() {
     val modelController = remember { ArabicModelController(context.filesDir) }
     val studyEventRepository = remember { StudyEventRepository(java.io.File(context.filesDir, "study/confirmed-events.db")) }
     val voiceMessageParser = remember { VoiceMessageDraftParser() }
-    val modelState by modelController.state.collectAsState()
+    val modelState by modelController.state.collectAsState()\n\n    val notificationPermissionLauncher = rememberLauncherForActivityResult(\n        ActivityResultContracts.RequestPermission()\n    ) { }\n\n    LaunchedEffect(Unit) {\n        StudyReminderWorker.createNotificationChannel(context)\n        if (Build.VERSION.SDK_INT >= 33 &&\n            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED\n        ) {\n            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)\n        }\n    }
 
     fun refreshRecordings() {
         recordings = recordingController.listRecordings()

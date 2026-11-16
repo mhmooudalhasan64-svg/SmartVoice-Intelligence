@@ -118,7 +118,14 @@ private fun HomeScreen() {
         ActivityResultContracts.RequestPermission()
     ) { }
 
-    LaunchedEffect(Unit) {\n        StudyReminderWorker.createNotificationChannel(context)\n        if (Build.VERSION.SDK_INT >= 33 &&\n            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED\n        ) {\n            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)\n        }\n    }
+    LaunchedEffect(Unit) {
+        StudyReminderWorker.createNotificationChannel(context)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     fun refreshRecordings() {
         recordings = recordingController.listRecordings()

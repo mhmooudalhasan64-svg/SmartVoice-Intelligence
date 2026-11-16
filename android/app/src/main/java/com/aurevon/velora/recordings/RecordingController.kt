@@ -1,6 +1,8 @@
 package com.aurevon.velora.recordings
 
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
@@ -24,6 +26,11 @@ internal class RecordingController(private val context: Context) {
         var newRecorder: MediaRecorder? = null
         var outputFile: File? = null
         return try {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, RecordingForegroundService::class.java)
+                    .setAction(RecordingForegroundService.ACTION_START)
+            )
             val directory = repository.ensureDirectory()
             val file = File(directory, "SV_${System.currentTimeMillis()}.m4a")
             outputFile = file
@@ -49,6 +56,7 @@ internal class RecordingController(private val context: Context) {
             outputFile?.delete()
             recorder = null
             activeFile = null
+            stopRecordingForegroundService()
             false
         }
     }
@@ -74,6 +82,7 @@ internal class RecordingController(private val context: Context) {
             try { currentRecorder?.release() } catch (_: Exception) { }
             recorder = null
             activeFile = null
+            stopRecordingForegroundService()
         }
         return if (saved) StopRecordingResult.Saved else StopRecordingResult.TooShort
     }
@@ -112,6 +121,16 @@ internal class RecordingController(private val context: Context) {
         recorder = null
         activeFile = null
         stopPlayback()
+        stopRecordingForegroundService()
+    }
+
+    private fun stopRecordingForegroundService() {
+        try {
+            context.startService(
+                Intent(context, RecordingForegroundService::class.java)
+                    .setAction(RecordingForegroundService.ACTION_STOP)
+            )
+        } catch (_: Exception) { }
     }
 }
 

@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
@@ -41,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -69,20 +72,27 @@ import java.util.Locale
 import com.smartvoice.intelligence.transcription.ArabicModelInstaller
 import com.smartvoice.intelligence.transcription.VoskTranscriptionEngine
 
-private val Ink = Color(0xFF111827)
-private val Panel = Color(0xFF1F2937)
-private val Accent = Color(0xFF7C9EFF)
-private val Muted = Color(0xFF9CA3AF)
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val preferences = getSharedPreferences("velora_preferences", MODE_PRIVATE)
         setContent {
-            SmartVoiceTheme {
-                Surface(Modifier.fillMaxSize(), color = Ink) {
+            var isDarkTheme by remember {
+                mutableStateOf(preferences.getBoolean("dark_theme", true))
+            }
+            VeloraTheme(darkTheme = isDarkTheme) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalLayoutDirection provides LayoutDirection.Rtl
-                    ) { HomeScreen() }
+                    ) {
+                        HomeScreen(
+                            isDarkTheme = isDarkTheme,
+                            onThemeToggle = {
+                                isDarkTheme = !isDarkTheme
+                                preferences.edit().putBoolean("dark_theme", isDarkTheme).apply()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -90,16 +100,30 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SmartVoiceTheme(content: @Composable () -> Unit) {
+private fun VeloraTheme(darkTheme: Boolean, content: @Composable () -> Unit) {
+    val gold = Color(0xFFD6AF59)
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Accent,
-            background = Ink,
-            surface = Panel,
-            onPrimary = Ink,
-            onBackground = Color.White,
-            onSurface = Color.White
-        ),
+        colorScheme = if (darkTheme) {
+            darkColorScheme(
+                primary = gold,
+                background = Color(0xFF090909),
+                surface = Color(0xFF181715),
+                onPrimary = Color(0xFF111111),
+                onBackground = Color(0xFFF8F5EC),
+                onSurface = Color(0xFFF8F5EC),
+                onSurfaceVariant = Color(0xFFB8B1A3)
+            )
+        } else {
+            lightColorScheme(
+                primary = Color(0xFF9A762C),
+                background = Color(0xFFF8F7F2),
+                surface = Color(0xFFFFFFFF),
+                onPrimary = Color.White,
+                onBackground = Color(0xFF1C1B18),
+                onSurface = Color(0xFF1C1B18),
+                onSurfaceVariant = Color(0xFF706B61)
+            )
+        },
         content = content
     )
 }
@@ -107,7 +131,7 @@ private fun SmartVoiceTheme(content: @Composable () -> Unit) {
 private data class RecordingItem(val file: File, val durationSeconds: Long?)
 
 @Composable
-private fun HomeScreen() {
+private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
     val context = LocalContext.current
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var activeFile by remember { mutableStateOf<File?>(null) }
@@ -235,17 +259,31 @@ private fun HomeScreen() {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("SmartVoice", style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold, color = Color.White)
-            Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
-                style = MaterialTheme.typography.bodyLarge, color = Muted)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("VELORA", style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+                Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onThemeToggle) {
+                Icon(
+                    if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = if (isDarkTheme) "التبديل إلى الوضع الفاتح" else "التبديل إلى الوضع الداكن",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -253,15 +291,15 @@ private fun HomeScreen() {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Surface(Modifier.size(68.dp), shape = CircleShape,
-                    color = Accent.copy(alpha = 0.16f)) {
-                    Icon(Icons.Default.Mic, null, tint = Accent,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {
+                    Icon(Icons.Default.Mic, null, tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(18.dp))
                 }
                 Text("حوّل كلامك إلى تنظيم واضح", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold, color = Color.White,
+                    fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center)
                 Text("التسجيل يُحفظ محلياً على جهازك. لا يتم رفع الصوت إلى أي خادم.",
-                    color = Muted, textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium)
                 Button(
                     onClick = {
@@ -278,7 +316,7 @@ private fun HomeScreen() {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRecording) Color(0xFFB45353) else Accent,
+                        containerColor = if (isRecording) Color(0xFFB45353) else MaterialTheme.colorScheme.primary,
                         contentColor = Color.White
                     )
                 ) {
@@ -296,7 +334,7 @@ private fun HomeScreen() {
 
         Text("التسجيلات المحفوظة (${recordings.size})",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold, color = Color.White)
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
 
         if (recordings.isEmpty()) {
             Text("لا توجد تسجيلات بعد. ابدأ تسجيلاً جديداً وسيظهر هنا.",
@@ -425,7 +463,7 @@ private fun HomeScreen() {
                         Text(if (isTranscribing) "جارٍ التفريغ..." else "تفريغ أحدث تسجيل")
                     }
                     modelProgress?.let {
-                        Text("تقدم المعالجة: $it%", color = Accent,
+                        Text("تقدم المعالجة: $it%", color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelSmall)
                     }
                 }
@@ -444,9 +482,6 @@ private fun HomeScreen() {
             FeatureRow(Icons.Default.Lightbulb, "الأفكار والملاحظات", "حفظ الأفكار وربطها بمصدرها")
         }
         Spacer(Modifier.height(2.dp))
-        Text("نسخة تأسيسية • 0.2.0", modifier = Modifier.fillMaxWidth(),
-            color = Muted, style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center)
     }
 }
 

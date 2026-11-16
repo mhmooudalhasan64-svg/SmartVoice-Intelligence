@@ -11,7 +11,7 @@ on:
       version_code:
         description: "Android version code (increase for every release)"
         required: true
-        default: "6"
+        default: "7"
         type: string
 
 permissions:

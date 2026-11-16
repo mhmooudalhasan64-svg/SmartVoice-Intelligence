@@ -12,7 +12,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,23 +23,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -63,16 +55,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.aurevon.velora.transcription.ArabicModelInstaller
 import com.aurevon.velora.transcription.VoskTranscriptionEngine
-
-private val Ink = Color(0xFF111827)
-private val Panel = Color(0xFF1F2937)
-private val Accent = Color(0xFF7C9EFF)
-private val Muted = Color(0xFF9CA3AF)
+import com.aurevon.velora.ui.components.FeatureRow
+import com.aurevon.velora.ui.components.RecordingItem
+import com.aurevon.velora.ui.components.RecordingRow
+import com.aurevon.velora.ui.theme.Accent
+import com.aurevon.velora.ui.theme.Ink
+import com.aurevon.velora.ui.theme.Muted
+import com.aurevon.velora.ui.theme.Panel
+import com.aurevon.velora.ui.theme.VeloraTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,23 +80,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-@Composable
-private fun VeloraTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Accent,
-            background = Ink,
-            surface = Panel,
-            onPrimary = Ink,
-            onBackground = Color.White,
-            onSurface = Color.White
-        ),
-        content = content
-    )
-}
-
-private data class RecordingItem(val file: File, val durationSeconds: Long?)
 
 @Composable
 private fun HomeScreen() {
@@ -449,68 +424,5 @@ private fun HomeScreen() {
         Text("نسخة تأسيسية • 0.2.0", modifier = Modifier.fillMaxWidth(),
             color = Muted, style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun RecordingRow(
-    item: RecordingItem,
-    isPlaying: Boolean,
-    onPlay: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val date = remember(item.file.lastModified()) {
-        SimpleDateFormat("yyyy/MM/dd • HH:mm", Locale.getDefault())
-            .format(Date(item.file.lastModified()))
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(date, color = Color.White, fontWeight = FontWeight.Medium)
-                val durationLabel = item.durationSeconds?.let { "${it / 60}:%02d".format(it % 60) } ?: "المدة غير متاحة"
-                Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
-                    color = Muted, style = MaterialTheme.typography.bodySmall)
-            }
-            IconButton(onClick = onPlay) {
-                Icon(Icons.Default.PlayArrow, contentDescription = if (isPlaying) "يعمل" else "تشغيل",
-                    tint = Accent)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "حذف التسجيل",
-                    tint = Color(0xFFFF9292))
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeatureRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
-                       title: String, description: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(13.dp)
-        ) {
-            Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp),
-                color = Accent.copy(alpha = 0.12f)) {
-                Icon(icon, null, tint = Accent, modifier = Modifier.padding(9.dp))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text(description, color = Muted, style = MaterialTheme.typography.bodySmall)
-            }
-        }
     }
 }

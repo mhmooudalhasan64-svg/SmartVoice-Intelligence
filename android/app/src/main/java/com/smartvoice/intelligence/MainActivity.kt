@@ -56,6 +56,10 @@ import kotlinx.coroutines.launch
 import com.aurevon.velora.recordings.RecordingController
 import com.aurevon.velora.recordings.RecordingItem
 import com.aurevon.velora.recordings.StopRecordingResult
+import com.aurevon.velora.organization.StudyEventDraft
+import com.aurevon.velora.organization.StudyEventRepository
+import com.aurevon.velora.organization.StudyEventType
+import com.aurevon.velora.organization.VoiceMessageDraftParser
 import com.aurevon.velora.transcription.ArabicModelController
 import com.aurevon.velora.transcription.ArabicModelInstallState
 import com.aurevon.velora.transcription.TranscriptionController
@@ -95,13 +99,60 @@ private fun HomeScreen() {
     var modelProgress by remember { mutableStateOf<Int?>(null) }
     var transcriptText by remember { mutableStateOf<String?>(null) }
     var isTranscribing by remember { mutableStateOf(false) }
+    var pendingStudyDraft by remember { mutableStateOf<StudyEventDraft?>(null) }
+    var confirmedStudyEvents by remember { mutableStateOf(emptyList<StudyEventDraft>()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val recordingController = remember { RecordingController(context) }
     val modelController = remember { ArabicModelController(context.filesDir) }
+    val studyEventRepository = remember { StudyEventRepository(java.io.File(context.filesDir, "study/confirmed-events.db")) }
+    val voiceMessageParser = remember { VoiceMessageDraftParser() }
     val modelState by modelController.state.collectAsState()
 
     fun refreshRecordings() {
         recordings = recordingController.listRecordings()
+    }
+
+
+    fun refreshStudyEvents() {
+        confirmedStudyEvents = studyEventRepository.list()
+    }
+
+    fun analyzeRecording(item: RecordingItem) {
+        if (modelState !is ArabicModelInstallState.Ready) {
+            modelStatus = "ثبّت نموذج العربية أولاً لتحليل التسجيل محلياً"
+            return
+        }
+        if (isTranscribing) return
+        isTranscribing = true
+        pendingStudyDraft = null
+        transcriptText = null
+        modelStatus = "يراجع ORIN التسجيل الصوتي..."
+        scope.launch {
+            try {
+                val transcriptionController = TranscriptionController(
+                    modelDirectory = modelController.installedDirectory,
+                    cacheDirectory = context.cacheDir
+                )
+                val result = transcriptionController.transcribe(
+                    recordingId = item.file.nameWithoutExtension,
+                    audioFile = item.file,
+                    languageTag = "ar"
+                )
+                val transcript = result.fullText.trim()
+                transcriptText = transcript.ifBlank { "لم يتم التعرف على كلام واضح." }
+                val draft = voiceMessageParser.parse(transcript)
+                if (draft == null) {
+                    modelStatus = "تم التفريغ، لكن لم أستطع تحديد مادة بوضوح. راجع النص المستخرج."
+                } else {
+                    pendingStudyDraft = draft
+                    modelStatus = "استخرج ORIN مسودة تحتاج إلى تأكيدك"
+                }
+            } catch (error: Exception) {
+                modelStatus = "تعذر تحليل التسجيل: " + (error.message ?: "خطأ غير معروف")
+            } finally {
+                isTranscribing = false
+            }
+        }
     }
 
     fun stopPlayback() {
@@ -146,6 +197,7 @@ private fun HomeScreen() {
 
     DisposableEffect(Unit) {
         refreshRecordings()
+        refreshStudyEvents()
         modelController.refresh()
         onDispose {
             recordingController.release()
@@ -233,6 +285,7 @@ private fun HomeScreen() {
                     RecordingRow(
                         item = item,
                         isPlaying = playingName == item.file.name,
+                        onAnalyze = { analyzeRecording(item) },
                         onPlay = {
                             val started = recordingController.play(item.file) {
                                 playingName = null
@@ -301,42 +354,14 @@ private fun HomeScreen() {
                     Button(
                         onClick = {
                             val latest = recordings.firstOrNull()
-                            if (latest == null) {
-                                modelStatus = "سجّل صوتًا أولاً"
-                            } else if (!isTranscribing) {
-                                isTranscribing = true
-                                transcriptText = null
-                                modelStatus = "جارٍ تفريغ أحدث تسجيل..."
-                                scope.launch {
-                                    try {
-                                        val transcriptionController = TranscriptionController(
-                                            modelDirectory = modelController.installedDirectory,
-                                            cacheDirectory = context.cacheDir
-                                        )
-                                        val result = transcriptionController.transcribe(
-                                            recordingId = latest.file.nameWithoutExtension,
-                                            audioFile = latest.file,
-                                            languageTag = "ar",
-                                            onProgress = { percent ->
-                                                scope.launch { modelProgress = percent }
-                                            }
-                                        )
-                                        transcriptText = result.fullText.ifBlank { "لم يتم التعرف على كلام واضح." }
-                                        modelStatus = "اكتمل التفريغ محليًا"
-                                    } catch (error: Exception) {
-                                        modelStatus = "تعذر التفريغ: ${error.message ?: "خطأ غير معروف"}"
-                                    } finally {
-                                        isTranscribing = false
-                                        modelProgress = null
-                                    }
-                                }
-                            }
+                            if (latest == null) modelStatus = "سجّل صوتًا أولاً"
+                            else analyzeRecording(latest)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = recordings.isNotEmpty() && !isTranscribing,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (isTranscribing) "جارٍ التفريغ..." else "تفريغ أحدث تسجيل")
+                        Text(if (isTranscribing) "جارٍ التحليل..." else "إرسال أحدث تسجيل إلى ORIN")
                     }
                     modelProgress?.let {
                         Text("تقدم المعالجة: $it%", color = Accent,
@@ -347,6 +372,69 @@ private fun HomeScreen() {
                     Text("النص المستخرج", color = Accent, fontWeight = FontWeight.SemiBold)
                     Text(text, color = Color.White, style = MaterialTheme.typography.bodyMedium)
                 }
+                pendingStudyDraft?.let { draft ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF263448)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("راجع ما فهمه ORIN", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("المادة: " + draft.subject, color = Color.White)
+                            val typeLabel = when (draft.eventType) {
+                                StudyEventType.LESSON -> "حصة دراسية"
+                                StudyEventType.HOMEWORK -> "واجب"
+                                StudyEventType.EXAM -> "امتحان"
+                            }
+                            Text("النوع: " + typeLabel, color = Color.White)
+                            Text("التاريخ: " + (draft.date?.toString() ?: "غير محدد — لن أضع تاريخاً من عندي"), color = Color.White)
+                            Text("المصدر: " + draft.sourceText, color = Muted, style = MaterialTheme.typography.bodySmall)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        if (studyEventRepository.saveConfirmed(draft)) {
+                                            pendingStudyDraft = null
+                                            refreshStudyEvents()
+                                            modelStatus = "تمت إضافة الحدث إلى جدولك"
+                                        } else {
+                                            modelStatus = "تعذر حفظ الحدث على الجهاز"
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) { Text("تأكيد وإضافة") }
+                                Button(
+                                    onClick = {
+                                        pendingStudyDraft = null
+                                        modelStatus = "تم تجاهل المسودة ولم يُحفظ شيء"
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF555D6B))
+                                ) { Text("تجاهل") }
+                            }
+                        }
+                    }
+                }
+                if (confirmedStudyEvents.isNotEmpty()) {
+                    Text("الأحداث المؤكدة", color = Accent, fontWeight = FontWeight.Bold)
+                    confirmedStudyEvents.take(5).forEach { event ->
+                        val eventLabel = when (event.eventType) {
+                            StudyEventType.LESSON -> "حصة"
+                            StudyEventType.HOMEWORK -> "واجب"
+                            StudyEventType.EXAM -> "امتحان"
+                        }
+                        Text(
+                            (event.date?.toString() ?: "بلا تاريخ") + " • " + event.subject + " • " + eventLabel,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
             }
         }
 

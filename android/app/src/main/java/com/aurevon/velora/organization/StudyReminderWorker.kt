@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.aurevon.velora.MainActivity
+import com.smartvoice.intelligence.MainActivity
 import com.aurevon.velora.R
 import java.time.LocalTime
 import java.time.ZoneId
@@ -35,7 +35,7 @@ class StudyReminderWorker(
     override suspend fun doWork(): Result {
         val subject = inputData.getString(KEY_SUBJECT) ?: return Result.failure()
         val type = inputData.getString(KEY_TYPE) ?: return Result.failure()
-        inputData.getString(KEY_DATE) ?: return Result.failure()
+        val date = inputData.getString(KEY_DATE) ?: return Result.failure()
 
         createNotificationChannel(applicationContext)
         val typeLabel = when (type) {

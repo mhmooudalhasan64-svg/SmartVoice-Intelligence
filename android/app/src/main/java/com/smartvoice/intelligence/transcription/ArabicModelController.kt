@@ -41,18 +41,18 @@ class ArabicModelController(context: Context) {
         }
 
         val work = workInfos.firstOrNull()
+        val progress = work?.progress?.getInt(
+            ArabicModelDownloadWorker.KEY_PROGRESS,
+            -1
+        )?.takeIf { it in 0..100 }
         _state.value = when (work?.state) {
             WorkInfo.State.ENQUEUED,
             WorkInfo.State.RUNNING,
             WorkInfo.State.BLOCKED -> {
-                val progress = work.progress.getInt(
-                    ArabicModelDownloadWorker.KEY_PROGRESS,
-                    -1
-                ).takeIf { it in 0..100 }
                 ArabicModelInstallState.Downloading(progress)
             }
             WorkInfo.State.FAILED -> ArabicModelInstallState.Failed(
-                work.outputData.getString(ArabicModelDownloadWorker.KEY_ERROR)
+                work?.outputData?.getString(ArabicModelDownloadWorker.KEY_ERROR)
                     ?: "تعذر تنزيل نموذج العربية"
             )
             WorkInfo.State.SUCCEEDED -> {

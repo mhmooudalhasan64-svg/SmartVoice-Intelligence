@@ -36,6 +36,12 @@ jobs:
         working-directory: android
         run: gradle --no-daemon assembleDebug
 
+      - name: Rename APK
+        working-directory: android
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/app-debug.apk release/VELORA_NEXUS_0.1.0.apk
+
       - name: Generate SHA-1 signing report
         working-directory: android
         run: gradle --no-daemon signingReport
@@ -47,6 +53,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: VELORA-v0.1.0-background-notifications
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: VELORA_NEXUS_0.1.0
+          path: android/release/VELORA_NEXUS_0.1.0.apk
           if-no-files-found: error

@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aurevon.velora.recordings.RecordingItem
 import com.aurevon.velora.ui.theme.Accent
 import com.aurevon.velora.ui.theme.Muted
 import com.aurevon.velora.ui.theme.Panel
@@ -31,8 +32,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-internal data class RecordingItem(val file: File, val durationSeconds: Long?)
 
 @Composable
 internal fun RecordingRow(

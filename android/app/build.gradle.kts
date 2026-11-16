@@ -13,14 +13,34 @@ android {
         applicationId = "com.aurevon.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.1.0"
+        // Release workflow supplies these values; local builds retain safe defaults.
+        versionCode = providers.gradleProperty("VERSION_CODE").orElse("5").get().toInt()
+        versionName = providers.gradleProperty("VERSION_NAME").orElse("0.1.0").get()
     }
 
     buildFeatures {
         compose = true
         // AGP does not generate BuildConfig unless this is explicitly enabled.
         buildConfig = true
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = providers.gradleProperty("ANDROID_KEYSTORE_PATH").orNull
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = providers.gradleProperty("ANDROID_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.gradleProperty("ANDROID_KEY_ALIAS").orNull
+                keyPassword = providers.gradleProperty("ANDROID_KEY_PASSWORD").orNull
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {

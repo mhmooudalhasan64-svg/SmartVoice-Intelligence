@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import java.io.FileOutputStream
+import java.time.LocalDate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -227,6 +228,9 @@ private fun HomeScreen() {
     DisposableEffect(Unit) {
         refreshRecordings()
         refreshStudyEvents()
+        studyEventRepository.list()
+            .filter { event -> event.date?.isBefore(LocalDate.now()) == false }
+            .forEach { event -> StudyReminderScheduler.scheduleConfirmedEvent(context, event) }
         modelController.refresh()
         onDispose {
             recordingController.release()
@@ -440,7 +444,7 @@ private fun HomeScreen() {
                                             modelStatus = if (reminderScheduled) {
                                                 "تمت إضافة الحدث وجدولة إشعار الساعة 8 صباحاً في يومه"
                                             } else {
-                                                "تمت إضافة الحدث. لم يُجدول إشعار لأن التاريخ غير محدد"
+                                                "تمت إضافة الحدث، لكن لم يُجدول إشعار لأن التاريخ غير محدد أو مضى"
                                             }
                                         } else {
                                             modelStatus = "تعذر حفظ الحدث على الجهاز"

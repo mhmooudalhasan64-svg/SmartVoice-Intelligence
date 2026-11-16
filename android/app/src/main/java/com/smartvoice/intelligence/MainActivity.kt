@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import java.io.FileOutputStream
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -152,6 +153,28 @@ private fun HomeScreen() {
                 modelStatus = "تعذر تحليل التسجيل: " + (error.message ?: "خطأ غير معروف")
             } finally {
                 isTranscribing = false
+            }
+        }
+    }
+
+
+    val audioPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val directory = java.io.File(context.filesDir, "recordings")
+                directory.mkdirs()
+                val imported = java.io.File(directory, "SV_IMPORTED_" + System.currentTimeMillis() + ".m4a")
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("تعذر فتح الملف المحدد")
+                input.use { source ->
+                    FileOutputStream(imported).use { destination -> source.copyTo(destination) }
+                }
+                refreshRecordings()
+                modelStatus = "تم استيراد التسجيل. اضغط رمز ORIN بجانبه لتحليله."
+            } catch (error: Exception) {
+                modelStatus = "تعذر استيراد التسجيل: " + (error.message ?: "خطأ غير معروف")
             }
         }
     }
@@ -368,6 +391,15 @@ private fun HomeScreen() {
                         Text("تقدم المعالجة: $it%", color = Accent,
                             style = MaterialTheme.typography.labelSmall)
                     }
+                }
+
+                Button(
+                    onClick = { audioPicker.launch(arrayOf("audio/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34445A))
+                ) {
+                    Text("اختيار تسجيل صوتي من الجهاز")
                 }
                 transcriptText?.let { text ->
                     Text("النص المستخرج", color = Accent, fontWeight = FontWeight.SemiBold)

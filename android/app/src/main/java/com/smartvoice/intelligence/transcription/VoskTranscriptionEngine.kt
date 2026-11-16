@@ -1,4 +1,4 @@
-package com.smartvoice.intelligence.transcription
+package com.aurevon.velora.transcription
 
 import android.media.MediaCodec
 import android.media.MediaExtractor

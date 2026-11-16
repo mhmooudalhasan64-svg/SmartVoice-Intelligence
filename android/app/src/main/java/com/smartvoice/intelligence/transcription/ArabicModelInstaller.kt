@@ -1,4 +1,4 @@
-package com.smartvoice.intelligence.transcription
+package com.aurevon.velora.transcription
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

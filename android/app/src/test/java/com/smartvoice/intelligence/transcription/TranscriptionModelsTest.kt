@@ -1,4 +1,4 @@
-package com.smartvoice.intelligence.transcription
+package com.aurevon.velora.transcription
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows

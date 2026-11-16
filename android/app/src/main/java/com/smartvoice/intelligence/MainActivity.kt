@@ -1,15 +1,15 @@
-package com.smartvoice.intelligence
+package com.aurevon.velora
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.media.MediaPlayer
-import android.media.MediaRecorder
-import android.os.Build
 import android.os.Bundle
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import java.io.FileOutputStream
+import java.time.LocalDate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,23 +25,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,27 +55,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import com.smartvoice.intelligence.transcription.ArabicModelInstaller
-import com.smartvoice.intelligence.transcription.VoskTranscriptionEngine
-
-private val Ink = Color(0xFF111827)
-private val Panel = Color(0xFF1F2937)
-private val Accent = Color(0xFF7C9EFF)
-private val Muted = Color(0xFF9CA3AF)
+import com.aurevon.velora.recordings.RecordingController
+import com.aurevon.velora.recordings.RecordingItem
+import com.aurevon.velora.recordings.StopRecordingResult
+import com.aurevon.velora.organization.StudyEventDraft
+import com.aurevon.velora.organization.StudyEventRepository
+import com.aurevon.velora.organization.StudyEventType
+import com.aurevon.velora.organization.StudyReminderScheduler
+import com.aurevon.velora.organization.StudyReminderWorker
+import com.aurevon.velora.organization.VoiceMessageDraftParser
+import com.aurevon.velora.transcription.ArabicModelController
+import com.aurevon.velora.transcription.ArabicModelInstallState
+import com.aurevon.velora.transcription.TranscriptionController
+import com.aurevon.velora.ui.components.FeatureRow
+import com.aurevon.velora.ui.components.RecordingRow
+import com.aurevon.velora.ui.theme.Accent
+import com.aurevon.velora.ui.theme.Ink
+import com.aurevon.velora.ui.theme.Muted
+import com.aurevon.velora.ui.theme.Panel
+import com.aurevon.velora.ui.theme.VeloraTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SmartVoiceTheme {
+            VeloraTheme {
                 Surface(Modifier.fillMaxSize(), color = Ink) {
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalLayoutDirection provides LayoutDirection.Rtl
@@ -90,117 +93,130 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SmartVoiceTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Accent,
-            background = Ink,
-            surface = Panel,
-            onPrimary = Ink,
-            onBackground = Color.White,
-            onSurface = Color.White
-        ),
-        content = content
-    )
-}
-
-private data class RecordingItem(val file: File, val durationSeconds: Long?)
-
-@Composable
 private fun HomeScreen() {
     val context = LocalContext.current
-    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
-    var activeFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var recordingStartedAt by remember { mutableStateOf(0L) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
     var status by remember { mutableStateOf("جاهز للتسجيل") }
     var recordings by remember { mutableStateOf(emptyList<RecordingItem>()) }
-    var player by remember { mutableStateOf<MediaPlayer?>(null) }
     var playingName by remember { mutableStateOf<String?>(null) }
-    var modelInstalled by remember { mutableStateOf(false) }
-    var modelStatus by remember { mutableStateOf("نموذج العربية غير مثبت") }
+    var modelStatus by remember { mutableStateOf<String?>(null) }
     var modelProgress by remember { mutableStateOf<Int?>(null) }
     var transcriptText by remember { mutableStateOf<String?>(null) }
     var isTranscribing by remember { mutableStateOf(false) }
-    var isInstallingModel by remember { mutableStateOf(false) }
+    var pendingStudyDraft by remember { mutableStateOf<StudyEventDraft?>(null) }
+    var confirmedStudyEvents by remember { mutableStateOf(emptyList<StudyEventDraft>()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val modelInstaller = remember { ArabicModelInstaller(context.filesDir) }
+    val recordingController = remember { RecordingController(context) }
+    val modelController = remember { ArabicModelController(context.filesDir) }
+    val studyEventRepository = remember { StudyEventRepository(java.io.File(context.filesDir, "study/confirmed-events.db")) }
+    val voiceMessageParser = remember { VoiceMessageDraftParser() }
+    val modelState by modelController.state.collectAsState()
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        StudyReminderWorker.createNotificationChannel(context)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     fun refreshRecordings() {
-        val dir = File(context.filesDir, "recordings")
-        recordings = (dir.listFiles()?.filter { it.isFile && it.extension == "m4a" }
-            ?.sortedByDescending { it.lastModified() } ?: emptyList())
-            .map { file ->
-                val durationFile = File(file.parentFile, "${file.nameWithoutExtension}.duration")
-                val duration = durationFile.takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
-                RecordingItem(file, duration)
+        recordings = recordingController.listRecordings()
+    }
+
+
+    fun refreshStudyEvents() {
+        confirmedStudyEvents = studyEventRepository.list()
+    }
+
+    fun analyzeRecording(item: RecordingItem) {
+        if (modelState !is ArabicModelInstallState.Ready) {
+            modelStatus = "ثبّت نموذج العربية أولاً لتحليل التسجيل محلياً"
+            return
+        }
+        if (isTranscribing) return
+        isTranscribing = true
+        pendingStudyDraft = null
+        transcriptText = null
+        modelStatus = "يراجع ORIN التسجيل الصوتي..."
+        scope.launch {
+            try {
+                val transcriptionController = TranscriptionController(
+                    modelDirectory = modelController.installedDirectory,
+                    cacheDirectory = context.cacheDir
+                )
+                val result = transcriptionController.transcribe(
+                    recordingId = item.file.nameWithoutExtension,
+                    audioFile = item.file,
+                    languageTag = "ar"
+                )
+                val transcript = result.fullText.trim()
+                transcriptText = transcript.ifBlank { "لم يتم التعرف على كلام واضح." }
+                val draft = voiceMessageParser.parse(transcript)
+                if (draft == null) {
+                    modelStatus = "تم التفريغ، لكن لم أستطع تحديد مادة بوضوح. راجع النص المستخرج."
+                } else {
+                    pendingStudyDraft = draft
+                    modelStatus = "استخرج ORIN مسودة تحتاج إلى تأكيدك"
+                }
+            } catch (error: Exception) {
+                modelStatus = "تعذر تحليل التسجيل: " + (error.message ?: "خطأ غير معروف")
+            } finally {
+                isTranscribing = false
             }
+        }
+    }
+
+
+    val audioPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val directory = java.io.File(context.filesDir, "recordings")
+                directory.mkdirs()
+                val imported = java.io.File(directory, "SV_IMPORTED_" + System.currentTimeMillis() + ".m4a")
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("تعذر فتح الملف المحدد")
+                input.use { source ->
+                    FileOutputStream(imported).use { destination -> source.copyTo(destination) }
+                }
+                refreshRecordings()
+                modelStatus = "تم استيراد التسجيل. اضغط رمز ORIN بجانبه لتحليله."
+            } catch (error: Exception) {
+                modelStatus = "تعذر استيراد التسجيل: " + (error.message ?: "خطأ غير معروف")
+            }
+        }
     }
 
     fun stopPlayback() {
-        try { player?.stop() } catch (_: Exception) { }
-        try { player?.release() } catch (_: Exception) { }
-        player = null
+        recordingController.stopPlayback()
         playingName = null
     }
 
     fun stopRecording() {
-        val current = recorder
-        try {
-            current?.stop()
-            activeFile?.let { file ->
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").writeText(elapsedSeconds.toString())
-            }
-            status = "تم حفظ التسجيل"
-        } catch (_: RuntimeException) {
-            activeFile?.let { file ->
-                file.delete()
-                File(file.parentFile, "${file.nameWithoutExtension}.duration").delete()
-            }
-            status = "التسجيل قصير جداً ولم يتم حفظه"
-        } finally {
-            try { current?.reset() } catch (_: Exception) { }
-            try { current?.release() } catch (_: Exception) { }
-            recorder = null
-            activeFile = null
-            isRecording = false
-            refreshRecordings()
+        status = when (recordingController.stopRecording(elapsedSeconds)) {
+            StopRecordingResult.Saved -> "تم حفظ التسجيل"
+            StopRecordingResult.TooShort -> "التسجيل قصير جداً ولم يتم حفظه"
         }
+        isRecording = false
+        refreshRecordings()
     }
 
     fun startRecording() {
-        var newRecorder: MediaRecorder? = null
-        var outputFile: File? = null
-        try {
-            val dir = File(context.filesDir, "recordings").apply { mkdirs() }
-            val file = File(dir, "SV_${System.currentTimeMillis()}.m4a")
-            outputFile = file
-            newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(context)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }
-            newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            newRecorder.setAudioEncodingBitRate(128000)
-            newRecorder.setAudioSamplingRate(44100)
-            newRecorder.setOutputFile(file.absolutePath)
-            newRecorder.prepare()
-            newRecorder.start()
-            recorder = newRecorder
-            activeFile = file
+        if (recordingController.startRecording()) {
             recordingStartedAt = System.currentTimeMillis()
             elapsedSeconds = 0
             isRecording = true
             status = "جارٍ التسجيل..."
-        } catch (_: Exception) {
-            try { newRecorder?.release() } catch (_: Exception) { }
-            outputFile?.delete()
-            recorder = null
-            activeFile = null
+        } else {
             isRecording = false
             status = "تعذر بدء التسجيل: تحقق من الميكروفون"
         }
@@ -222,12 +238,13 @@ private fun HomeScreen() {
 
     DisposableEffect(Unit) {
         refreshRecordings()
-        modelInstalled = modelInstaller.isInstalled()
-        if (modelInstalled) modelStatus = "نموذج العربية جاهز على الجهاز"
+        refreshStudyEvents()
+        studyEventRepository.list()
+            .filter { event -> event.date?.isBefore(LocalDate.now()) == false }
+            .forEach { event -> StudyReminderScheduler.scheduleConfirmedEvent(context, event) }
+        modelController.refresh()
         onDispose {
-            try { recorder?.stop() } catch (_: Exception) { }
-            try { recorder?.release() } catch (_: Exception) { }
-            try { player?.release() } catch (_: Exception) { }
+            recordingController.release()
         }
     }
 
@@ -236,11 +253,13 @@ private fun HomeScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("SmartVoice", style = MaterialTheme.typography.headlineMedium,
+            Text("VELORA", style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, color = Color.White)
             Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
                 style = MaterialTheme.typography.bodyLarge, color = Muted)
         }
+
+        AccountAuthCard()
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -310,31 +329,25 @@ private fun HomeScreen() {
                     RecordingRow(
                         item = item,
                         isPlaying = playingName == item.file.name,
+                        onAnalyze = { analyzeRecording(item) },
                         onPlay = {
-                            stopPlayback()
-                            try {
-                                val mp = MediaPlayer().apply {
-                                    setDataSource(item.file.absolutePath)
-                                    setOnCompletionListener {
-                                        it.release()
-                                        player = null
-                                        playingName = null
-                                    }
-                                    prepare()
-                                    start()
-                                }
-                                player = mp
+                            val started = recordingController.play(item.file) {
+                                playingName = null
+                            }
+                            if (started) {
                                 playingName = item.file.name
-                            } catch (_: Exception) {
-                                stopPlayback()
+                            } else {
+                                playingName = null
                                 status = "تعذر تشغيل هذا التسجيل"
                             }
                         },
                         onDelete = {
                             if (playingName == item.file.name) stopPlayback()
-                            item.file.delete()
-                            File(item.file.parentFile, "${item.file.nameWithoutExtension}.duration").delete()
-                            refreshRecordings()
+                            if (recordingController.deleteRecording(item.file)) {
+                                refreshRecordings()
+                            } else {
+                                status = "تعذر حذف التسجيل"
+                            }
                         }
                     )
                 }
@@ -352,87 +365,136 @@ private fun HomeScreen() {
             ) {
                 Text("التفريغ الصوتي العربي", color = Color.White,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(modelStatus, color = Muted, style = MaterialTheme.typography.bodySmall)
-                if (!modelInstalled) {
-                    Text("يتطلب النموذج تنزيلًا اختياريًا بحجم يقارب 318 MB. بعد تثبيته تتم معالجة الصوت محليًا.",
-                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                val installState = modelState
+                val defaultModelStatus = when (installState) {
+                    ArabicModelInstallState.NotInstalled -> "نموذج العربية غير مثبت"
+                    ArabicModelInstallState.Ready -> "نموذج العربية جاهز على الجهاز"
+                    is ArabicModelInstallState.Downloading -> "جارٍ تنزيل النموذج العربي..."
+                    is ArabicModelInstallState.Failed -> "فشل التثبيت: ${installState.message}"
+                }
+                Text(modelStatus ?: defaultModelStatus, color = Muted,
+                    style = MaterialTheme.typography.bodySmall)
+                if (installState !is ArabicModelInstallState.Ready) {
+                    if (installState is ArabicModelInstallState.NotInstalled ||
+                        installState is ArabicModelInstallState.Failed
+                    ) {
+                        Text("يتطلب النموذج تنزيلًا اختياريًا بحجم يقارب 318 MB. بعد تثبيته تتم معالجة الصوت محليًا.",
+                            color = Muted, style = MaterialTheme.typography.bodySmall)
+                    }
                     Button(
                         onClick = {
-                            modelStatus = "جارٍ تنزيل النموذج العربي..."
-                            isInstallingModel = true
-                            scope.launch {
-                                try {
-                                    modelInstaller.install { progress ->
-                                        scope.launch { modelProgress = progress }
-                                    }
-                                    modelInstalled = true
-                                    modelStatus = "اكتمل تثبيت النموذج العربي"
-                                } catch (error: Exception) {
-                                    modelStatus = "فشل التثبيت: ${error.message ?: "خطأ غير معروف"}"
-                                } finally {
-                                    modelProgress = null
-                                    isInstallingModel = false
-                                }
-                            }
+                            modelStatus = null
+                            scope.launch { modelController.install() }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isInstallingModel,
+                        enabled = installState !is ArabicModelInstallState.Downloading,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(modelProgress?.let { "تنزيل النموذج • $it%" } ?: "تنزيل نموذج العربية")
+                        val progress = (installState as? ArabicModelInstallState.Downloading)?.progressPercent
+                        Text(progress?.let { "تنزيل النموذج • $it%" } ?:
+                            if (installState is ArabicModelInstallState.Downloading) "جارٍ التنزيل..." else "تنزيل نموذج العربية")
                     }
                 } else {
                     Button(
                         onClick = {
                             val latest = recordings.firstOrNull()
-                            if (latest == null) {
-                                modelStatus = "سجّل صوتًا أولاً"
-                            } else if (!isTranscribing) {
-                                isTranscribing = true
-                                transcriptText = null
-                                modelStatus = "جارٍ تفريغ أحدث تسجيل..."
-                                scope.launch {
-                                    try {
-                                        val engine = VoskTranscriptionEngine(
-                                            modelInstaller.installedDirectory,
-                                            File(context.cacheDir, "transcription")
-                                        )
-                                        val result = withContext(Dispatchers.IO) {
-                                            engine.transcribe(
-                                                recordingId = latest.file.nameWithoutExtension,
-                                                audioFile = latest.file,
-                                                languageTag = "ar",
-                                                onProgress = { percent ->
-                                                    scope.launch { modelProgress = percent }
-                                                }
-                                            )
-                                        }
-                                        transcriptText = result.fullText.ifBlank { "لم يتم التعرف على كلام واضح." }
-                                        modelStatus = "اكتمل التفريغ محليًا"
-                                    } catch (error: Exception) {
-                                        modelStatus = "تعذر التفريغ: ${error.message ?: "خطأ غير معروف"}"
-                                    } finally {
-                                        isTranscribing = false
-                                        modelProgress = null
-                                    }
-                                }
-                            }
+                            if (latest == null) modelStatus = "سجّل صوتًا أولاً"
+                            else analyzeRecording(latest)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = recordings.isNotEmpty() && !isTranscribing,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (isTranscribing) "جارٍ التفريغ..." else "تفريغ أحدث تسجيل")
+                        Text(if (isTranscribing) "جارٍ التحليل..." else "إرسال أحدث تسجيل إلى ORIN")
                     }
                     modelProgress?.let {
                         Text("تقدم المعالجة: $it%", color = Accent,
                             style = MaterialTheme.typography.labelSmall)
                     }
                 }
+
+                Button(
+                    onClick = { audioPicker.launch(arrayOf("audio/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34445A))
+                ) {
+                    Text("اختيار تسجيل صوتي من الجهاز")
+                }
                 transcriptText?.let { text ->
                     Text("النص المستخرج", color = Accent, fontWeight = FontWeight.SemiBold)
                     Text(text, color = Color.White, style = MaterialTheme.typography.bodyMedium)
                 }
+                pendingStudyDraft?.let { draft ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF263448)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("راجع ما فهمه ORIN", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("المادة: " + draft.subject, color = Color.White)
+                            val typeLabel = when (draft.eventType) {
+                                StudyEventType.LESSON -> "حصة دراسية"
+                                StudyEventType.HOMEWORK -> "واجب"
+                                StudyEventType.EXAM -> "امتحان"
+                            }
+                            Text("النوع: " + typeLabel, color = Color.White)
+                            Text("التاريخ: " + (draft.date?.toString() ?: "غير محدد — لن أضع تاريخاً من عندي"), color = Color.White)
+                            Text("المصدر: " + draft.sourceText, color = Muted, style = MaterialTheme.typography.bodySmall)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        if (studyEventRepository.saveConfirmed(draft)) {
+                                            pendingStudyDraft = null
+                                            refreshStudyEvents()
+                                            val reminderScheduled = StudyReminderScheduler.scheduleConfirmedEvent(
+                                                context, draft.copy(requiresConfirmation = false)
+                                            )
+                                            modelStatus = if (reminderScheduled) {
+                                                "تمت إضافة الحدث وجدولة إشعار الساعة 8 صباحاً في يومه"
+                                            } else {
+                                                "تمت إضافة الحدث، لكن لم يُجدول إشعار لأن التاريخ غير محدد أو مضى"
+                                            }
+                                        } else {
+                                            modelStatus = "تعذر حفظ الحدث على الجهاز"
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) { Text("تأكيد وإضافة") }
+                                Button(
+                                    onClick = {
+                                        pendingStudyDraft = null
+                                        modelStatus = "تم تجاهل المسودة ولم يُحفظ شيء"
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF555D6B))
+                                ) { Text("تجاهل") }
+                            }
+                        }
+                    }
+                }
+                if (confirmedStudyEvents.isNotEmpty()) {
+                    Text("الأحداث المؤكدة", color = Accent, fontWeight = FontWeight.Bold)
+                    confirmedStudyEvents.take(5).forEach { event ->
+                        val eventLabel = when (event.eventType) {
+                            StudyEventType.LESSON -> "حصة"
+                            StudyEventType.HOMEWORK -> "واجب"
+                            StudyEventType.EXAM -> "امتحان"
+                        }
+                        Text(
+                            (event.date?.toString() ?: "بلا تاريخ") + " • " + event.subject + " • " + eventLabel,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
             }
         }
 
@@ -447,68 +509,5 @@ private fun HomeScreen() {
         Text("نسخة تأسيسية • 0.2.0", modifier = Modifier.fillMaxWidth(),
             color = Muted, style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun RecordingRow(
-    item: RecordingItem,
-    isPlaying: Boolean,
-    onPlay: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val date = remember(item.file.lastModified()) {
-        SimpleDateFormat("yyyy/MM/dd • HH:mm", Locale.getDefault())
-            .format(Date(item.file.lastModified()))
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(date, color = Color.White, fontWeight = FontWeight.Medium)
-                val durationLabel = item.durationSeconds?.let { "${it / 60}:%02d".format(it % 60) } ?: "المدة غير متاحة"
-                Text("$durationLabel • %.1f MB".format(item.file.length() / (1024.0 * 1024.0)),
-                    color = Muted, style = MaterialTheme.typography.bodySmall)
-            }
-            IconButton(onClick = onPlay) {
-                Icon(Icons.Default.PlayArrow, contentDescription = if (isPlaying) "يعمل" else "تشغيل",
-                    tint = Accent)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "حذف التسجيل",
-                    tint = Color(0xFFFF9292))
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeatureRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
-                       title: String, description: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(13.dp)
-        ) {
-            Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp),
-                color = Accent.copy(alpha = 0.12f)) {
-                Icon(icon, null, tint = Accent, modifier = Modifier.padding(9.dp))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text(description, color = Muted, style = MaterialTheme.typography.bodySmall)
-            }
-        }
     }
 }

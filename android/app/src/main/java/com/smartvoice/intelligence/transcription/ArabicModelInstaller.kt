@@ -189,6 +189,9 @@ class ArabicModelInstaller(private val filesDirectory: File) {
                     output.fd.sync()
                 }
             }
+            if (expectedLength > 0L && archive.length() != expectedLength) {
+                throw IOException("Model download is incomplete; it will resume automatically")
+            }
             onProgress(100)
         } finally {
             connection.disconnect()

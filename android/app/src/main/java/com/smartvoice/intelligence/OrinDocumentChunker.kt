@@ -44,7 +44,10 @@ object OrinDocumentChunker {
 
             sentences.forEach { sentence ->
                 if (sentence.length > maxChars) {
-                    if (current.isNotEmpty()) emit()
+                    if (current.isNotEmpty()) {
+                        emit()
+                        current.setLength(0)
+                    }
                     var offset = 0
                     while (offset < sentence.length) {
                         val end = minOf(offset + maxChars, sentence.length)

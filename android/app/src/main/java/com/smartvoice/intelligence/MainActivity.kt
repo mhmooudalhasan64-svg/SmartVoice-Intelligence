@@ -282,6 +282,12 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
                     Text("مساعدك الصوتي للتوثيق والتنظيم الذكي",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "من AUREVON",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
             IconButton(onClick = onThemeToggle) {
@@ -293,18 +299,67 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
             }
         }
 
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(8.dp),
+                    shape = CircleShape,
+                    color = if (isRecording) Color(0xFFB45353) else MaterialTheme.colorScheme.primary
+                ) {}
+                Text(
+                    if (isRecording) "التسجيل جارٍ الآن" else "مساحتك الذكية جاهزة",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "AUREVON",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OverviewMetricCard(
+                modifier = Modifier.weight(1f),
+                label = "التسجيلات",
+                value = recordings.size.toString(),
+                detail = "ملفات محفوظة"
+            )
+            OverviewMetricCard(
+                modifier = Modifier.weight(1f),
+                label = "النموذج العربي",
+                value = if (modelInstalled) "جاهز" else "غير مثبت",
+                detail = if (modelInstalled) "المعالجة محلية" else "تنزيل اختياري"
+            )
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)),
+            shape = RoundedCornerShape(26.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                modifier = Modifier.fillMaxWidth().padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Surface(Modifier.size(68.dp), shape = CircleShape,
+                Surface(Modifier.size(74.dp), shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) {
                     Icon(Icons.Default.Mic, null, tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(18.dp))
@@ -327,8 +382,8 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(15.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isRecording) Color(0xFFB45353) else MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -501,6 +556,43 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
 }
 
 @Composable
+private fun OverviewMetricCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    detail: String
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium
+            )
+            Text(
+                value,
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                detail,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    }
+}
+
+@Composable
 private fun RecordingRow(
     item: RecordingItem,
     isPlaying: Boolean,
@@ -514,7 +606,8 @@ private fun RecordingRow(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -543,7 +636,8 @@ private fun FeatureRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
                        title: String, description: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(

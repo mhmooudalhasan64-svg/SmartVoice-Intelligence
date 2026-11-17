@@ -20,8 +20,7 @@ test("rejects system roles and malformed content", () => {
 
 test("enforces per-message and total character limits", () => {
   assert.equal(validateChatRequest({ messages: [{ role: "user", content: "x".repeat(MAX_MESSAGE_CHARS + 1) }] }).ok, false);
-  const parts = Array(5).fill(null).map(() => ({ role: "user", content: "x".repeat(11000) }));
-  parts[parts.length - 1] = { role: "user", content: "last" };
+  const parts = Array(5).fill({ role: "user", content: "x".repeat(11000) });
   assert.equal(validateChatRequest({ messages: parts }).ok, false);
   assert.ok(MAX_TOTAL_CHARS > MAX_MESSAGE_CHARS);
 });

@@ -52,6 +52,8 @@ fun OrinDocumentLibrary() {
     var extractedSections by remember { mutableStateOf<List<OrinExtractedSection>>(emptyList()) }
     var selectedDocumentName by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var documentQuestion by remember { mutableStateOf("") }
+    var insightText by remember { mutableStateOf<String?>(null) }
     var loadingDocument by remember { mutableStateOf<String?>(null) }
     var libraryStatus by remember { mutableStateOf<String?>(null) }
 
@@ -100,6 +102,8 @@ fun OrinDocumentLibrary() {
                 extractedSections = sections
                 selectedDocumentName = document.name
                 searchQuery = ""
+                documentQuestion = ""
+                insightText = null
                 libraryStatus = if (sections.isEmpty()) {
                     "لم يُعثر على نص قابل للاستخراج. قد يكون PDF ممسوحاً ضوئياً ويحتاج إلى OCR."
                 } else {
@@ -240,6 +244,59 @@ fun OrinDocumentLibrary() {
                         Text("يتم عرض أول 40 نتيجة لتخفيف الحمل على الواجهة.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            if (selectedDocumentName != null && extractedSections.isNotEmpty()) {
+                androidx.compose.material3.HorizontalDivider()
+                Text(
+                    "أدوات فهم المستند",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+                Button(
+                    onClick = {
+                        insightText = OrinDocumentInsights.summarize(extractedSections)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("إنشاء ملخص من محتوى الملف")
+                }
+                OutlinedTextField(
+                    value = documentQuestion,
+                    onValueChange = { documentQuestion = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("اسأل عن محتوى هذا الملف") },
+                    placeholder = { Text("مثلاً: ما الفكرة الرئيسية؟") }
+                )
+                Button(
+                    onClick = {
+                        insightText = OrinDocumentInsights.answer(extractedSections, documentQuestion).text
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = documentQuestion.isNotBlank(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("ابحث عن إجابة في المستند")
+                }
+                insightText?.let { result ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+                        )
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                result,
+                                modifier = Modifier.padding(14.dp),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             }

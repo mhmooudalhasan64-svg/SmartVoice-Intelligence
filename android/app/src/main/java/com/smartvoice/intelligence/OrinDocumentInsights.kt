@@ -23,18 +23,19 @@ object OrinDocumentInsights {
     fun answer(sections: List<OrinExtractedSection>, question: String): OrinDocumentAnswer {
         val terms = normalize(question).split(Regex("\\s+")).filter { it.length >= 2 }.distinct()
         if (terms.isEmpty()) return OrinDocumentAnswer("اكتب سؤالاً أو كلمات مفتاحية مرتبطة بمحتوى الملف.", emptyList(), 0)
-        val matches = sections.mapNotNull { section ->
-            val normalized = normalize(section.text)
+        val chunks = OrinDocumentChunker.chunk(sections)
+        val matches = chunks.mapNotNull { chunk ->
+            val normalized = normalize(chunk.text)
             val score = terms.count { normalized.contains(it) }
-            if (score == 0) null else Triple(section, score, normalized.length)
-        }.sortedWith(compareByDescending<Triple<OrinExtractedSection, Int, Int>> { it.second }.thenBy { it.third }).take(5)
+            if (score == 0) null else Triple(chunk, score, normalized.length)
+        }.sortedWith(compareByDescending<Triple<OrinDocumentChunk, Int, Int>> { it.second }.thenBy { it.third }).take(5)
         if (matches.isEmpty()) return OrinDocumentAnswer(
             "لم أعثر على مقطع مطابق في النص المستخرج. جرّب كلمات أخرى أو صياغة أبسط.", emptyList(), 0
         )
         val excerpts = matches.map { item ->
-            val section = item.first
-            val excerpt = bestExcerpt(section.text, terms)
-            if (section.pageNumber != null) "• $excerpt (الصفحة ${section.pageNumber})" else "• $excerpt"
+            val chunk = item.first
+            val excerpt = bestExcerpt(chunk.text, terms)
+            if (chunk.pageNumber != null) "• $excerpt (الصفحة ${chunk.pageNumber})" else "• $excerpt"
         }
         return OrinDocumentAnswer(
             "المقاطع الأقرب إلى سؤالك:\n\n" + excerpts.joinToString("\n\n") +

@@ -12,8 +12,8 @@ android {
         applicationId = "com.smartvoice.intelligence"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 7
+        versionName = "0.1.0"
     }
 
     buildFeatures {
@@ -36,6 +36,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     // Vosk Android native recognizer. @aar is required to include Android native libraries.
     implementation("net.java.dev.jna:jna:5.18.1@aar")
     implementation("com.alphacephei:vosk-android:0.3.75@aar")

@@ -544,6 +544,8 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
             }
         }
 
+        OrinDocumentLibrary()
+
         Text("مساحات التنظيم", style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {

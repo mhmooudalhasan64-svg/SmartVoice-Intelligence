@@ -544,6 +544,8 @@ private fun HomeScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
             }
         }
 
+        OrinChatWorkspace()
+
         OrinDocumentLibrary()
 
         Text("مساحات التنظيم", style = MaterialTheme.typography.titleMedium,
